@@ -1,0 +1,126 @@
+2024-12-17 18:02:45,150:API_operations.helpers.JobService:INFO Creating job 132953
+2024-12-17 18:02:45,226:API_operations.exports.ForProject:INFO Input Param = {'project_id': 5421, 'exp_type': <ExportTypeEnum.general_tsv: 'TSV'>, 'use_latin1': False, 'tsv_entities': 'OPAS', 'only_annotations': False, 'split_by': '', 'coma_as_separator': False, 'format_dates_times': True, 'with_images': False, 'with_internal_ids': True, 'with_types_row': True, 'only_first_image': False, 'sum_subtotal': <SummaryExportGroupingEnum.just_by_taxon: ''>, 'pre_mapping': {}, 'formulae': {}, 'out_to_ftp': False}
+2024-12-17 18:02:45,241:API_operations.exports.ForProject:INFO Execute SQL : select obh.orig_id AS object_id, 
+                             obh.latitude AS object_lat, obh.longitude AS object_lon,
+                             TO_CHAR(obh.objdate,'YYYY-MM-DD') AS object_date,
+                             TO_CHAR(obh.objtime,'HH24:MI:SS') AS object_time,
+                             obh.object_link, obh.depth_min AS object_depth_min, obh.depth_max AS object_depth_max,
+                         
+                CASE obh.classif_qual 
+                            WHEN 'V' then 'validated' 
+                            WHEN 'P' then 'predicted' 
+                            WHEN 'D' then 'dubious' 
+                            ELSE obh.classif_qual 
+                         END AS object_annotation_status,                
+                         usr.name AS object_annotation_person_name, usr.email AS object_annotation_person_email,
+                         
+                    CASE WHEN obh.classif_qual IN ('V','D') THEN TO_CHAR(obh.classif_date,'YYYY-MM-DD') END AS object_annotation_date,
+                  CASE WHEN obh.classif_qual IN ('V','D') THEN TO_CHAR(obh.classif_date,'HH24:MI:SS') END AS object_annotation_time, 
+                         txo.display_name AS object_annotation_category 
+                    ,(WITH RECURSIVE rq(id, name, parent_id) 
+                   AS (SELECT id, name, parent_id, 1 AS rank 
+                         FROM taxonomy 
+                        WHERE id = obh.classif_id
+                       UNION
+                       SELECT txpr.id, txpr.name, txpr.parent_id, rank+1 AS rank 
+                         FROM rq 
+                         JOIN taxonomy txpr ON txpr.id = rq.parent_id)
+                    SELECT string_agg(name,'>') 
+                      FROM (SELECT name 
+                              FROM rq 
+                          ORDER BY rank desc) q) AS object_annotation_hierarchy
+ , obf.n01 AS "object_lat_end", obf.n02 AS "object_lon_end", obf.n03 AS "object_area", obf.n04 AS "object_mean", obf.n05 AS "object_stddev", obf.n06 AS "object_mode", obf.n07 AS "object_min", obf.n08 AS "object_max", obf.n09 AS "object_x", obf.n10 AS "object_y", obf.n11 AS "object_xm", obf.n12 AS "object_ym", obf.n13 AS "object_perim.", obf.n14 AS "object_bx", obf.n15 AS "object_by", obf.n16 AS "object_width", obf.n17 AS "object_height", obf.n18 AS "object_major", obf.n19 AS "object_minor", obf.n20 AS "object_angle", obf.n21 AS "object_circ.", obf.n22 AS "object_feret", obf.n23 AS "object_intden", obf.n24 AS "object_median", obf.n25 AS "object_skew", obf.n26 AS "object_kurt", obf.n27 AS "object_%area", obf.n28 AS "object_xstart", obf.n29 AS "object_ystart", obf.n30 AS "object_area_exc", obf.n31 AS "object_fractal", obf.n32 AS "object_skelarea", obf.n33 AS "object_slope", obf.n34 AS "object_histcum1", obf.n35 AS "object_histcum2", obf.n36 AS "object_histcum3", obf.n37 AS "object_xmg5", obf.n38 AS "object_ymg5", obf.n39 AS "object_nb1", obf.n40 AS "object_nb2", obf.n41 AS "object_nb3", obf.n42 AS "object_compentropy", obf.n43 AS "object_compmean", obf.n44 AS "object_compslope", obf.n45 AS "object_compm1", obf.n46 AS "object_compm2", obf.n47 AS "object_compm3", obf.n48 AS "object_symetrieh", obf.n49 AS "object_symetriev", obf.n50 AS "object_symetriehc", obf.n51 AS "object_symetrievc", obf.n52 AS "object_convperim", obf.n53 AS "object_convarea", obf.n54 AS "object_fcons", obf.n55 AS "object_thickr", obf.n56 AS "object_tag", obf.n57 AS "object_esd", obf.n58 AS "object_elongation", obf.n59 AS "object_range", obf.n60 AS "object_meanpos", obf.n61 AS "object_centroids", obf.n62 AS "object_cv", obf.n63 AS "object_sr", obf.n64 AS "object_perimareaexc", obf.n65 AS "object_feretareaexc", obf.n66 AS "object_perimferet", obf.n67 AS "object_perimmajor", obf.n68 AS "object_circex", obf.n69 AS "object_cdexc"
+, sam.orig_id AS sample_id, sam.dataportal_descriptor AS sample_dataportal_descriptor , sam.t01 AS "sample_scan_operator", sam.t02 AS "sample_ship", sam.t03 AS "sample_program", sam.t04 AS "sample_stationid", sam.t05 AS "sample_bottomdepth", sam.t06 AS "sample_ctdrosettefilename", sam.t07 AS "sample_other_ref", sam.t08 AS "sample_tow_nb", sam.t09 AS "sample_tow_type", sam.t10 AS "sample_net_type", sam.t11 AS "sample_net_mesh", sam.t12 AS "sample_net_surf", sam.t13 AS "sample_zmax", sam.t14 AS "sample_zmin", sam.t15 AS "sample_tot_vol", sam.t16 AS "sample_comment", sam.t17 AS "sample_tot_vol_qc", sam.t18 AS "sample_depth_qc", sam.t19 AS "sample_sample_qc", sam.t20 AS "sample_barcode", sam.t21 AS "sample_duration", sam.t22 AS "sample_ship_speed", sam.t23 AS "sample_cable_length", sam.t24 AS "sample_cable_angle", sam.t25 AS "sample_cable_speed", sam.t26 AS "sample_nb_jar", sam.t27 AS "sample_open"
+, prc.orig_id AS process_id , prc.t01 AS "process_date", prc.t02 AS "process_time", prc.t03 AS "process_img_software_version", prc.t04 AS "process_img_resolution", prc.t05 AS "process_img_od_grey", prc.t06 AS "process_img_od_std", prc.t07 AS "process_img_background_img", prc.t08 AS "process_particle_version", prc.t09 AS "process_particle_threshold", prc.t10 AS "process_particle_pixel_size_mm", prc.t11 AS "process_particle_min_size_mm", prc.t12 AS "process_particle_max_size_mm", prc.t13 AS "process_particle_sep_mask", prc.t14 AS "process_particle_bw_ratio", prc.t15 AS "process_software"
+, acq.orig_id AS acq_id, acq.instrument AS acq_instrument , acq.t01 AS "acq_min_mesh", acq.t02 AS "acq_max_mesh", acq.t03 AS "acq_sub_part", acq.t04 AS "acq_sub_method", acq.t05 AS "acq_hardware", acq.t06 AS "acq_software", acq.t07 AS "acq_author", acq.t08 AS "acq_imgtype", acq.t09 AS "acq_scan_date", acq.t10 AS "acq_scan_time", acq.t11 AS "acq_quality", acq.t12 AS "acq_bitpixel", acq.t13 AS "acq_greyfrom", acq.t14 AS "acq_scan_resolution", acq.t15 AS "acq_rotation", acq.t16 AS "acq_miror", acq.t17 AS "acq_xsize", acq.t18 AS "acq_ysize", acq.t19 AS "acq_xoffset", acq.t20 AS "acq_yoffset", acq.t21 AS "acq_lut_color_balance", acq.t22 AS "acq_lut_filter", acq.t23 AS "acq_lut_min", acq.t24 AS "acq_lut_max", acq.t25 AS "acq_lut_odrange", acq.t26 AS "acq_lut_ratio", acq.t27 AS "acq_lut_16b_median"
+, obh.objid, 
+                    obh.acquisid AS processid_internal, obh.acquisid AS acq_id_internal, 
+                    sam.sampleid AS sample_id_internal, 
+                    obh.classif_id, obh.classif_who, 
+                    CASE WHEN obh.classif_qual = 'P' THEN obh.classif_id END AS classif_auto_id, 
+                    txp.name classif_auto_name, 
+                    obh.classif_score AS classif_auto_score, 
+                    CASE WHEN obh.classif_qual = 'P' THEN obh.classif_date END AS classif_auto_when,
+                    HASHTEXT(obh.orig_id) object_random_value, obh.sunpos object_sunpos 
+, sam.latitude sample_lat, sam.longitude sample_long  FROM (select (:projid) as projid) prjs
+ JOIN samples sam ON sam.projid = prjs.projid
+ JOIN acquisitions acq ON acq.acq_sample_id = sam.sampleid
+ JOIN process prc ON prc.processid = acq.acquisid
+ JOIN obj_head obh ON obh.acquisid = acq.acquisid
+ JOIN obj_field obf ON obf.objfid = obh.objid
+ LEFT JOIN taxonomy txo ON txo.id = obh.classif_id
+ LEFT JOIN users usr ON obh.classif_who = usr.id
+ LEFT JOIN taxonomy txp ON txp.id = txo.parent_id 
+ORDER BY sam.orig_id ASC, obh.objid ASC
+2024-12-17 18:02:45,241:API_operations.exports.ForProject:INFO Params : {'projid': 5421}
+2024-12-17 18:03:45,722:API_operations.exports.ForProject:INFO Writing into temptask file data.tsv
+2024-12-17 18:03:48,588:API_operations.exports.ForProject:INFO Row 10000 of max 679683
+2024-12-17 18:03:51,360:API_operations.exports.ForProject:INFO Row 20000 of max 679683
+2024-12-17 18:03:54,203:API_operations.exports.ForProject:INFO Row 30000 of max 679683
+2024-12-17 18:03:57,011:API_operations.exports.ForProject:INFO Row 40000 of max 679683
+2024-12-17 18:03:59,805:API_operations.exports.ForProject:INFO Row 50000 of max 679683
+2024-12-17 18:04:02,621:API_operations.exports.ForProject:INFO Row 60000 of max 679683
+2024-12-17 18:04:05,467:API_operations.exports.ForProject:INFO Row 70000 of max 679683
+2024-12-17 18:04:08,284:API_operations.exports.ForProject:INFO Row 80000 of max 679683
+2024-12-17 18:04:11,101:API_operations.exports.ForProject:INFO Row 90000 of max 679683
+2024-12-17 18:04:13,905:API_operations.exports.ForProject:INFO Row 100000 of max 679683
+2024-12-17 18:04:16,717:API_operations.exports.ForProject:INFO Row 110000 of max 679683
+2024-12-17 18:04:19,529:API_operations.exports.ForProject:INFO Row 120000 of max 679683
+2024-12-17 18:04:22,325:API_operations.exports.ForProject:INFO Row 130000 of max 679683
+2024-12-17 18:04:25,133:API_operations.exports.ForProject:INFO Row 140000 of max 679683
+2024-12-17 18:04:27,959:API_operations.exports.ForProject:INFO Row 150000 of max 679683
+2024-12-17 18:04:30,746:API_operations.exports.ForProject:INFO Row 160000 of max 679683
+2024-12-17 18:04:33,538:API_operations.exports.ForProject:INFO Row 170000 of max 679683
+2024-12-17 18:04:36,343:API_operations.exports.ForProject:INFO Row 180000 of max 679683
+2024-12-17 18:04:39,147:API_operations.exports.ForProject:INFO Row 190000 of max 679683
+2024-12-17 18:04:41,972:API_operations.exports.ForProject:INFO Row 200000 of max 679683
+2024-12-17 18:04:44,812:API_operations.exports.ForProject:INFO Row 210000 of max 679683
+2024-12-17 18:04:47,647:API_operations.exports.ForProject:INFO Row 220000 of max 679683
+2024-12-17 18:04:50,478:API_operations.exports.ForProject:INFO Row 230000 of max 679683
+2024-12-17 18:04:53,303:API_operations.exports.ForProject:INFO Row 240000 of max 679683
+2024-12-17 18:04:56,128:API_operations.exports.ForProject:INFO Row 250000 of max 679683
+2024-12-17 18:04:58,926:API_operations.exports.ForProject:INFO Row 260000 of max 679683
+2024-12-17 18:05:01,714:API_operations.exports.ForProject:INFO Row 270000 of max 679683
+2024-12-17 18:05:04,499:API_operations.exports.ForProject:INFO Row 280000 of max 679683
+2024-12-17 18:05:07,298:API_operations.exports.ForProject:INFO Row 290000 of max 679683
+2024-12-17 18:05:10,106:API_operations.exports.ForProject:INFO Row 300000 of max 679683
+2024-12-17 18:05:12,928:API_operations.exports.ForProject:INFO Row 310000 of max 679683
+2024-12-17 18:05:15,773:API_operations.exports.ForProject:INFO Row 320000 of max 679683
+2024-12-17 18:05:18,656:API_operations.exports.ForProject:INFO Row 330000 of max 679683
+2024-12-17 18:05:21,609:API_operations.exports.ForProject:INFO Row 340000 of max 679683
+2024-12-17 18:05:24,500:API_operations.exports.ForProject:INFO Row 350000 of max 679683
+2024-12-17 18:05:27,393:API_operations.exports.ForProject:INFO Row 360000 of max 679683
+2024-12-17 18:05:30,280:API_operations.exports.ForProject:INFO Row 370000 of max 679683
+2024-12-17 18:05:33,154:API_operations.exports.ForProject:INFO Row 380000 of max 679683
+2024-12-17 18:05:36,037:API_operations.exports.ForProject:INFO Row 390000 of max 679683
+2024-12-17 18:05:38,908:API_operations.exports.ForProject:INFO Row 400000 of max 679683
+2024-12-17 18:05:41,785:API_operations.exports.ForProject:INFO Row 410000 of max 679683
+2024-12-17 18:05:44,654:API_operations.exports.ForProject:INFO Row 420000 of max 679683
+2024-12-17 18:05:47,495:API_operations.exports.ForProject:INFO Row 430000 of max 679683
+2024-12-17 18:05:50,386:API_operations.exports.ForProject:INFO Row 440000 of max 679683
+2024-12-17 18:05:53,268:API_operations.exports.ForProject:INFO Row 450000 of max 679683
+2024-12-17 18:05:56,149:API_operations.exports.ForProject:INFO Row 460000 of max 679683
+2024-12-17 18:05:59,021:API_operations.exports.ForProject:INFO Row 470000 of max 679683
+2024-12-17 18:06:01,902:API_operations.exports.ForProject:INFO Row 480000 of max 679683
+2024-12-17 18:06:04,753:API_operations.exports.ForProject:INFO Row 490000 of max 679683
+2024-12-17 18:06:07,587:API_operations.exports.ForProject:INFO Row 500000 of max 679683
+2024-12-17 18:06:10,429:API_operations.exports.ForProject:INFO Row 510000 of max 679683
+2024-12-17 18:06:13,285:API_operations.exports.ForProject:INFO Row 520000 of max 679683
+2024-12-17 18:06:16,122:API_operations.exports.ForProject:INFO Row 530000 of max 679683
+2024-12-17 18:06:18,969:API_operations.exports.ForProject:INFO Row 540000 of max 679683
+2024-12-17 18:06:21,810:API_operations.exports.ForProject:INFO Row 550000 of max 679683
+2024-12-17 18:06:24,655:API_operations.exports.ForProject:INFO Row 560000 of max 679683
+2024-12-17 18:06:27,493:API_operations.exports.ForProject:INFO Row 570000 of max 679683
+2024-12-17 18:06:30,333:API_operations.exports.ForProject:INFO Row 580000 of max 679683
+2024-12-17 18:06:33,161:API_operations.exports.ForProject:INFO Row 590000 of max 679683
+2024-12-17 18:06:35,987:API_operations.exports.ForProject:INFO Row 600000 of max 679683
+2024-12-17 18:06:38,855:API_operations.exports.ForProject:INFO Row 610000 of max 679683
+2024-12-17 18:06:41,704:API_operations.exports.ForProject:INFO Row 620000 of max 679683
+2024-12-17 18:06:44,563:API_operations.exports.ForProject:INFO Row 630000 of max 679683
+2024-12-17 18:06:47,478:API_operations.exports.ForProject:INFO Row 640000 of max 679683
+2024-12-17 18:06:50,375:API_operations.exports.ForProject:INFO Row 650000 of max 679683
+2024-12-17 18:06:53,264:API_operations.exports.ForProject:INFO Row 660000 of max 679683
+2024-12-17 18:06:56,121:API_operations.exports.ForProject:INFO Row 670000 of max 679683
+2024-12-17 18:07:00,142:API_operations.exports.ForProject:INFO Storing into zip as ecotaxa_export_5421_20241217_1803.tsv
+2024-12-17 18:07:28,404:API_operations.exports.ForProject:INFO Extracted 679683 rows
+2024-12-17 18:07:28,405:API_operations.exports.ForProject:INFO Log in zip should end here.
