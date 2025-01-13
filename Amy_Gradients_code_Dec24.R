@@ -2,6 +2,7 @@
 #load ineeded packages
 packages <- c("tidyr","dplyr","readxl", "readr", "stringr","devtools", "data.table","ggplot2","LaCroixColoR","readxl", 
               "ggpubr", "gridExtra", "RColorBrewer","colorspace","OneR", "lookup")
+
 package.check <- lapply(
   packages,
   FUN = function(x) {
@@ -11,40 +12,112 @@ package.check <- lapply(
     }
   }
 )
-#load ecotaxa import file from location on computer  (.xls version)
-ecotaxa_aggregates <- read_delim("C:/Users/amy.maas/Desktop/MOC_Ecotaxa_Analysis/Gradients/Gradients_all_Sept_21.txt", "\t")
 
-#pull lines of date that we want
-sub1<-ecotaxa_aggregates[,c("object_id","object_depth_min","object_depth_max","object_annotation_hierarchy",
-                        "object_area","object_major",	"object_minor","object_esd","sample_tot_vol","acq_sub_part")]
+# load ecotaxa import file from location on computer (.xls version)
+ecotaxa_aggregates <- readr::read_delim(
+  file  = here::here("~", "Desktop", "ciren", "ecotaxa_export_5421_20241217_1803.tsv"),
+  delim = "\t"
+) |>
+  dplyr::slice(-1)
 
-#label lines of data that we want
-names(sub1)=c("Label","Min_depth","Max_depth","Taxa","area","major","minor",
-              "ESD","Tow_Vol","Sub_part")
+# pull columns of date that we want
+sub1 <- ecotaxa_aggregates |>
+  dplyr::select(
+    "object_id",
+    "object_depth_min",
+    "object_depth_max",
+    "object_annotation_hierarchy",
+    "object_area",
+    "object_major",
+    "object_minor",
+    "object_esd",
+    "sample_tot_vol",
+    "acq_sub_part"
+  )
 
-#The "object_ID" (now called Label) typically varies among Ecotaxa users. Generally it contains information about the contains cruise, tow, net, and size fraction
-#This information is typically (hopefully!) separated by some special character. The following code infers these splits and labels the information associated with each particle
-#You will need to change the label order if your data is included differently.
-sub1$num<-gsub(".*_","",sub1$Label)
-sub1<-separate(sub1,Label,
-               c("cruise","moc","net","fraction"), extra="drop", remove=FALSE)
+# label columns of data that we want
+sub1 <- sub1 |>
+  dplyr::rename(
+    "Label"     = "object_id",
+    "Min_depth" = "object_depth_min",
+    "Max_depth" = "object_depth_max",
+    "Taxa"      = "object_annotation_hierarchy",
+    "area"      = "object_area",
+    "major"     = "object_major",
+    "minor"     = "object_minor",
+    "ESD"       = "object_esd",
+    "Tow_Vol"   = "sample_tot_vol",
+    "Sub_part"  = "acq_sub_part"
+  )
 
-sub1$area_mm2<-sub1$"area"*0.000112 #0.00002809 for 4800
-sub1$major_mm<-sub1$"major"*.010583 #.0053 for 4800
-sub1$minor_mm<-as.numeric(sub1$"minor"*.010583) #.0053 for 4800
-#sub1$feret_mm<-as.numeric(sub1$"feret"*0.010583)
-sub1$esd_mm<-as.numeric(sub1$ESD*0.010583)
-sub1$vol<-(4/3)*pi*((sub1$minor_mm*0.5)^2)*(sub1$major_mm/2)
-sub1$hdif<-(sub1$Max_depth-sub1$Min_depth)
-sub1$split<-(1/(sub1$Sub_part))
-#sub1$L_D<-as.factor(ifelse(sub1$Taxa %in%"not-living","not-living","living"))
-sub1$cruise_moc_net<-as.factor(paste(sub1$cruise,sub1$moc,sub1$net, sep="_"))
+# The "object_ID" (now called Label) typically varies among Ecotaxa users.
+# Generally it contains information about the contains cruise, tow, net, and
+# size fraction This information is typically (hopefully!) separated by some
+# special character. The following code infers these splits and labels the
+# information associated with each particle You will need to change the label
+# order if your data is included differently.
+
+sub1$num <- gsub(
+  pattern     = ".*_",
+  replacement = "",
+  x           = sub1$Label
+)
+
+sub1 <- sub1 |>
+  tidyr::separate_wider_delim(
+    col      = Label,
+    delim    = "_",
+    names    = c(
+      "cruise",
+      "moc",
+      "net",
+      "fraction"
+    ),
+    too_few  = c("debug"),
+    too_many = c("drop")
+  )
+
+sub1 <- sub1 |>
+  dplyr::mutate(
+    area           = as.numeric(area),
+    major          = as.numeric(major),
+    minor          = as.numeric(minor),
+    ESD            = as.numeric(ESD),
+    Max_depth      = as.numeric(Max_depth),
+    Min_depth      = as.numeric(Min_depth),
+    Sub_part       = as.numeric(Sub_part),
+    area_mm2       = area * 0.000112,  # 0.00002809 for 4800
+    major_mm       = major * 0.010583, # 0.0053 for 4800
+    minor_mm       = minor * 0.010583, # 0.0053 for 4800
+    esd_mm         = ESD * 0.010583,
+    vol            = (4 / 3) * pi * ((minor_mm * 0.5)^2) * (major_mm / 2),
+    hdif           = Max_depth - Min_depth,
+    split          = (1 / Sub_part),
+    cruise_moc_net = as.factor(
+      paste(
+        cruise, moc, net,
+        sep = "_"
+      )
+    )
+  )
+
+# sub1$area_mm2<-sub1$"area"*0.000112 #0.00002809 for 4800
+# sub1$major_mm<-sub1$"major"*.010583 #.0053 for 4800
+# sub1$minor_mm<-as.numeric(sub1$"minor"*.010583) #.0053 for 4800
+# #sub1$feret_mm<-as.numeric(sub1$"feret"*0.010583)
+# sub1$esd_mm<-as.numeric(sub1$ESD*0.010583)
+# sub1$vol<-(4/3)*pi*((sub1$minor_mm*0.5)^2)*(sub1$major_mm/2)
+# sub1$hdif<-(sub1$Max_depth-sub1$Min_depth)
+# sub1$split<-(1/(sub1$Sub_part))
+# #sub1$L_D<-as.factor(ifelse(sub1$Taxa %in%"not-living","not-living","living"))
+# sub1$cruise_moc_net<-as.factor(paste(sub1$cruise,sub1$moc,sub1$net, sep="_"))
 
 #Other environmental factors can be added to this spreadsheet and indexed using these lines
-moc_metadata_index <- read_excel("C:/Users/amy.maas/Desktop/MOC_Ecotaxa_Analysis/Gradients/Gradients_MOCNESS_net_hydrography.xlsx")
-sub1$temp<-as.numeric(as.character(moc_metadata_index$temp[match(sub1$cruise_moc_net,moc_metadata_index$cruise_moc_net)]))
-sub1$D_N<-as.factor(as.character(moc_metadata_index$D_N[match(sub1$cruise_moc_net,moc_metadata_index$cruise_moc_net)]))
-sub1$station<-as.factor(as.character(moc_metadata_index$station[match(sub1$cruise_moc_net,moc_metadata_index$cruise_moc_net)]))
+moc_metadata_index <- readxl::read_excel("Amy_Gradients_MOCNESS_net_hydrography.xlsx")
+
+sub1$temp <- as.numeric(as.character(moc_metadata_index$temp[match(sub1$cruise_moc_net,moc_metadata_index$cruise_moc_net)]))
+sub1$D_N <- as.factor(as.character(moc_metadata_index$D_N[match(sub1$cruise_moc_net,moc_metadata_index$cruise_moc_net)]))
+sub1$station <- as.factor(as.character(moc_metadata_index$station[match(sub1$cruise_moc_net,moc_metadata_index$cruise_moc_net)]))
 
 #The split information can be added separately and indexed using these lines
 #scan_split_index <- read_excel("C:/Users/amy.maas/BIOS Dropbox/Amy Maas/ZoopGroup_LAB/Projects/EXPORTS/Cruise 2018/Zooscan/R analysis 2024/scan_split_index.xlsx")
@@ -53,6 +126,29 @@ sub1$station<-as.factor(as.character(moc_metadata_index$station[match(sub1$cruis
 #sub1$split_correct<-(1/as.numeric((sub1$sub_part_correct)))
 
 #note! These are BATS conversions!
+
+sub1 |>
+  dplyr::mutate(
+    DW = dplyr::case_when(
+      grepl("Calanoida", Taxa, ignore.case = TRUE) ~ 0.0550 * vol,
+      grepl("Chaetognatha", Taxa, ignore.case = TRUE) ~ 0.0130 * vol,
+      grepl("Ostracoda", Taxa, ignore.case = TRUE) ~ 0.0520 * vol,
+      grepl("Thecosomata", Taxa, ignore.case = TRUE) ~ 0.1913 * vol,
+      grepl("Amphipoda", Taxa, ignore.case = TRUE) ~ 0.0340 * vol,
+      grepl("Euphausiacea", Taxa, ignore.case = TRUE) ~ 0.0270 * vol,
+      grepl("Poecilostomatoida", Taxa, ignore.case = TRUE) ~ 0.0740 * vol,
+      grepl("Foraminifera", Taxa, ignore.case = TRUE) ~ 0.1420 * vol,
+      grepl("Decapoda", Taxa, ignore.case = TRUE) ~ 0.0340 * vol,
+      # TRUE ~ 0.055 * vol
+      TRUE ~ NA_real_
+    ),
+    O2_umol = (exp(-0.339 + (0.801 * log(DW))) + 0.069 * (15)) / 22.4,
+    CO2 = (O2_umol) * 0.87 # Converts between O2 and CO2 using a general RQ
+  )
+
+
+
+
 sub1$DW<-with(sub1, ifelse(Taxa %like% "Calanoida", 0.055*vol,
                            ifelse(Taxa %like% "Chaetognatha", 0.013*vol,
                                   ifelse(Taxa %like% "Ostracoda", 0.052*vol,
@@ -84,8 +180,16 @@ sub1$CO2<-(sub1$O2_umol)*0.87 #Converts between O2 and CO2 using a general RQ
 
 summary(sub1)
 
+# The workflow to this point _should have been_ encapsuled in
+# "Gradients_first_run.txt/csv". However, Taxa are not included in the supplied
+# data. Need either the source EcoTaxa data or new environmental data that
+# would correspond to alternate EcoTaxa data to resolve the workflow
+# completely.
+
 write.csv(sub1,file=paste
           ("C:/Users/amy.maas/Desktop/MOC_Ecotaxa_Analysis/Gradients/Gradients_first_run.txt", sep=""),row.names=F)
+
+sub1 <- readr::read_csv("Gradients_first_run.csv") # but missing Taxa!
 
 ###I STOPPED CHECKING THE EDITING HERE
 
@@ -94,6 +198,9 @@ write.csv(sub1,file=paste
 a<-"not-living"
 M_filt<-filter(sub1,!grepl(a, Taxa))
 summary(M_filt)
+
+sub1 |>
+dplyr::filter(!grepl("not-living", Taxa)) |>
 
 B<-as.character(c(seq(0.25, 74, by=0.25)))
 M_filt$bin<-cut(M_filt$esd_mm, breaks=c(seq(0.25, 74.25, by=0.25)), labels=B)
@@ -434,7 +541,3 @@ CO2.heatmap<-ggplot(data=dn.hm4, mapping=aes(x=bin, y=net, fill=CO2, color=""))+
 CO2.heatmap
 ggsave(CO2.heatmap,filename=paste(J,"CO2_Shift.png", sep="_"),
        path=paste("Output/PairedNets/",I, sep=""), width=8, height=5, units="in", dpi=300)
-
-
-
-
