@@ -326,7 +326,7 @@ ggplot2::ggplot(
 
 ### OXYGEN USE SUMMARY
 ggplot2::ggplot(
-  data = (summary),
+  data    = summary,
   mapping = ggplot2::aes(
     x     = net,
     y     = oxy_m2,
@@ -365,9 +365,23 @@ ggplot2::ggplot(
 ######################################################################################################
 #set your path here, SELECTING THE Data THAT YOU WANT
 WF<-read.csv(paste(descr,"C:/Users/amy.maas/Desktop/MOC_Ecotaxa_Analysis/Aggregates_July24/Aggregates_Aug24_bins.csv", sep=""))
-WF$bin<-as.factor(WF$bin)
-WF_sub<-WF%>%group_by(net,bin)%>%summarize(Density_m3=sum(Density_m3),Abundance_m2=sum(Abundance_m2))
-WF_sub$binN<-as.numeric(as.character(WF_sub$bin))
+
+# SRE: can we assume that WF would be equivalent to summary from above?
+WF <- summary
+
+WF$bin <- as.factor(WF$bin)
+
+WF_sub <- WF |>
+  dplyr::group_by(
+    net,
+    bin
+  ) |>
+  dplyr::summarize(
+    Density_m3   = sum(Density_m3),
+    Abundance_m2 = sum(Abundance_m2)
+  )
+
+WF_sub$binN <- as.numeric(as.character(WF_sub$bin))
 
 # FILLS IN THE DEPTH INTERVALS FOR THE SPECIFIC MOCNESS (there has to be a way you can auto-populate this from the metadata)
 # M12-M13
@@ -382,31 +396,60 @@ net_labs <- c(
   "900-1000 m"
 )
 
-#NAME OF THE MOCNESS
-Title<-"Oct 2018 (Day)"
+# NAME OF THE MOCNESS
+Title <- "Oct 2018 (Day)"
 
 
-WFplot<-ggplot(data=WF_sub, aes(x=binN, y=Abundance_m2,color=net))+
-  geom_point(size=2)+
-  scale_color_manual(values=(lacroix_palette("PeachPear", type="continuous", n=8)), labels=rev(net_labs))+
-  labs(x=expression("Size class"~(mm^3)), y=expression("Abundance"~(particles~m^-2)),
-       title=paste(Title), color="")+
-  guides(color=guide_legend(reverse=T))+
-  scale_y_log10(limits=c(0.001,100000), #you may need to change your scale 
-                breaks=c(0.1,1,10,100,1000,10000,100000), #you may need to change your scale
-                labels=c("0.1","1","10","100","1000","10000","100000"))+
-  #you can limit your scale based on what biomass you effectively sample, but you should look to see all data first
-  scale_x_log10(limits=c(.001,1000),
-                breaks=c(0.001,0.01,0.1,1,10,100,1000), 
-                labels=c("0.001","0.01","0.1","1","10","100","1000"))+
-  coord_cartesian(clip='off')+
-  theme(plot.title=element_text(face="bold",hjust=0.5, size=14),
-        legend.position='bottom')+
-  theme(legend.text=element_text(size=11))+
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.background = element_blank(), axis.line = element_line(colour = "black"),
-        axis.text.x = element_text(size=14),axis.text.y= element_text(size=14),
-        axis.title=element_text(size=14),strip.text=element_text(size=14, face="bold"))
+(
+  WFplot <- ggplot2::ggplot(
+    data = WF_sub,
+    ggplot2::aes(
+      x = binN,
+      y = Abundance_m2,
+      color = net
+    )
+  ) +
+    ggplot2::geom_point(size = 2) +
+    # SRE: LaCroixColoR package is unavailable # nolint
+    # ggplot2::scale_color_manual(
+    #   values = (lacroix_palette("PeachPear", type = "continuous", n = 8)),
+    #   labels = rev(net_labs)
+    #   ) +
+    ggplot2::labs(
+      x     = expression("Size class" ~ (mm^3)),
+      y     = expression("Abundance" ~ (particles ~ m^-2)),
+      title = paste(Title),
+      color = ""
+    ) +
+    ggplot2::guides(color = ggplot2::guide_legend(reverse = T)) +
+    ggplot2::scale_y_log10(
+      limits = c(0.001, 100000), # you may need to change your scale
+      breaks = c(0.1, 1, 10, 100, 1000, 10000, 100000), # you may need to change your scale
+      labels = c("0.1", "1", "10", "100", "1000", "10000", "100000")
+    ) +
+    # you can limit your scale based on what biomass you effectively sample, but you should look to see all data first
+    ggplot2::scale_x_log10(
+      limits = c(.001, 1000),
+      breaks = c(0.001, 0.01, 0.1, 1, 10, 100, 1000),
+      labels = c("0.001", "0.01", "0.1", "1", "10", "100", "1000")
+    ) +
+    ggplot2::coord_cartesian(clip = "off") +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "bold", hjust = 0.5, size = 14),
+      legend.position = "bottom"
+    ) +
+    ggplot2::theme(legend.text = ggplot2::element_text(size = 11)) +
+    ggplot2::theme(
+      panel.grid.major = ggplot2::element_blank(),
+      panel.grid.minor = ggplot2::element_blank(),
+      panel.background = ggplot2::element_blank(),
+      axis.line = ggplot2::element_line(colour = "black"),
+      axis.text.x = ggplot2::element_text(size = 14),
+      axis.text.y = ggplot2::element_text(size = 14),
+      axis.title = ggplot2::element_text(size = 14),
+      strip.text = ggplot2::element_text(size = 14, face = "bold")
+    )
+)
 
 WFplot
 # set your path
