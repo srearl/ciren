@@ -20,22 +20,24 @@ ecotaxa_aggregates <- readr::read_delim(
 ) |>
   dplyr::slice(-1)
 
-# pull columns of date that we want
-sub1 <- ecotaxa_aggregates |>
-  dplyr::select(
-    "object_id",
-    "object_depth_min",
-    "object_depth_max",
-    "object_annotation_hierarchy",
-    "object_area",
-    "object_major",
-    "object_minor",
-    "object_esd",
-    "sample_tot_vol",
-    "acq_sub_part"
-  )
+sub1 <- ecotaxa_aggregates # to maintain workflow continuity
 
-# label columns of data that we want
+# # pull columns of date that we want
+# sub1 <- ecotaxa_aggregates |>
+#   dplyr::select(
+#     "object_id",
+#     "object_depth_min",
+#     "object_depth_max",
+#     "object_annotation_hierarchy",
+#     "object_area",
+#     "object_major",
+#     "object_minor",
+#     "object_esd",
+#     "sample_tot_vol",
+#     "acq_sub_part"
+#   )
+
+# label relevant columns
 sub1 <- sub1 |>
   dplyr::rename(
     "Label"     = "object_id",
@@ -115,8 +117,11 @@ sub1 <- sub1 |>
 #Other environmental factors can be added to this spreadsheet and indexed using these lines
 moc_metadata_index <- readxl::read_excel("Amy_Gradients_MOCNESS_net_hydrography.xlsx")
 
-sub1$temp <- as.numeric(as.character(moc_metadata_index$temp[match(sub1$cruise_moc_net,moc_metadata_index$cruise_moc_net)]))
-sub1$D_N <- as.factor(as.character(moc_metadata_index$D_N[match(sub1$cruise_moc_net,moc_metadata_index$cruise_moc_net)]))
+# SRE: the data downloaded from EcoTaxa do not have temperature, but those data
+# are not used in the remainder of this workflow, anyway.
+
+sub1$temp    <- as.numeric(as.character(moc_metadata_index$temp[match(sub1$cruise_moc_net,moc_metadata_index$cruise_moc_net)]))
+sub1$D_N     <- as.factor(as.character(moc_metadata_index$D_N[match(sub1$cruise_moc_net,moc_metadata_index$cruise_moc_net)]))
 sub1$station <- as.factor(as.character(moc_metadata_index$station[match(sub1$cruise_moc_net,moc_metadata_index$cruise_moc_net)]))
 
 #The split information can be added separately and indexed using these lines
@@ -127,7 +132,9 @@ sub1$station <- as.factor(as.character(moc_metadata_index$station[match(sub1$cru
 
 #note! These are BATS conversions!
 
-sub1 |>
+# SRE: these taxa match 179155 of 679683 records
+
+sub1 <- sub1 |>
   dplyr::mutate(
     DW = dplyr::case_when(
       grepl("Calanoida", Taxa, ignore.case = TRUE) ~ 0.0550 * vol,
@@ -148,37 +155,36 @@ sub1 |>
 
 
 
+# sub1$DW<-with(sub1, ifelse(Taxa %like% "Calanoida", 0.055*vol,
+#                            ifelse(Taxa %like% "Chaetognatha", 0.013*vol,
+#                                   ifelse(Taxa %like% "Ostracoda", 0.052*vol,
+#                                          ifelse(Taxa %like% "Thecosomata",0.1913*vol,
+#                                                 ifelse(Taxa %like% "Amphipoda",0.034*vol,
+#                                                        ifelse(Taxa %like% "Euphausiacea",0.027*vol,
+#                                                               ifelse(Taxa %like% "Poecilostomatoida", 0.074*vol,
+#                                                                      ifelse(Taxa %like% "Foraminifera",0.142*vol,
+#                                                                             ifelse(Taxa %like% "Decapoda",0.034*vol,
+#                                                                                    0.055*vol))))))))))
+# sub1$O2_umol<-(exp(-0.339+(0.801*log(sub1$DW)))+0.069*(15))/22.4 
+# #sub2$O2_umol<-(exp(-0.339+(0.801*log(sub2$DW)))+0.069*(sub2$temp))/22.4 
+# #sub1$O2_umol<-with(sub1, ifelse(Taxa %in% "Copepoda", ((exp(-0.399+(0.801*log(DW)))+0.069*(temp))/22.4),
+# #                                ifelse(Taxa %in% "Chaetognatha", ((exp(-0.173+(0.805*log(DW)))+0.068*(temp))/22.4),
+# #                                       ifelse(Taxa %in% "Amphipoda", ((exp(0.407+(0.743*log(DW)))+0.037*(temp))/22.4),
+# #                                              ifelse(Taxa %in% "Euphausiacea",((exp(0.392+(0.753*log(DW)))+0.046*(temp))/22.4),
+# #                                                     ifelse(Taxa %in% "Mollusca",((exp(-0.56+(0.82*log(DW)))+0.046*(temp))/22.4),
+# #                                                            ((exp(-0.399+(0.801*log(DW)))+0.069*(temp))/22.4)))))))
 
-sub1$DW<-with(sub1, ifelse(Taxa %like% "Calanoida", 0.055*vol,
-                           ifelse(Taxa %like% "Chaetognatha", 0.013*vol,
-                                  ifelse(Taxa %like% "Ostracoda", 0.052*vol,
-                                         ifelse(Taxa %like% "Thecosomata",0.1913*vol,
-                                                ifelse(Taxa %like% "Amphipoda",0.034*vol,
-                                                       ifelse(Taxa %like% "Euphausiacea",0.027*vol,
-                                                              ifelse(Taxa %like% "Poecilostomatoida", 0.074*vol,
-                                                                     ifelse(Taxa %like% "Foraminifera",0.142*vol,
-                                                                            ifelse(Taxa %like% "Decapoda",0.034*vol,
-                                                                                   0.055*vol))))))))))
-sub1$O2_umol<-(exp(-0.339+(0.801*log(sub1$DW)))+0.069*(15))/22.4 
-#sub2$O2_umol<-(exp(-0.339+(0.801*log(sub2$DW)))+0.069*(sub2$temp))/22.4 
-#sub1$O2_umol<-with(sub1, ifelse(Taxa %in% "Copepoda", ((exp(-0.399+(0.801*log(DW)))+0.069*(temp))/22.4),
-#                                ifelse(Taxa %in% "Chaetognatha", ((exp(-0.173+(0.805*log(DW)))+0.068*(temp))/22.4),
-#                                       ifelse(Taxa %in% "Amphipoda", ((exp(0.407+(0.743*log(DW)))+0.037*(temp))/22.4),
-#                                              ifelse(Taxa %in% "Euphausiacea",((exp(0.392+(0.753*log(DW)))+0.046*(temp))/22.4),
-#                                                     ifelse(Taxa %in% "Mollusca",((exp(-0.56+(0.82*log(DW)))+0.046*(temp))/22.4),
-#                                                            ((exp(-0.399+(0.801*log(DW)))+0.069*(temp))/22.4)))))))
-
-sub1$CO2<-(sub1$O2_umol)*0.87 #Converts between O2 and CO2 using a general RQ 
-#sub1$CO2<-with(sub1, ifelse(Taxa %in% "Copepoda", O2_umol*0.87,
-#                            ifelse(Taxa %in% "Chaetognatha", O2_umol*1.35,
-#                                   ifelse(Taxa %in% "Amphipoda", O2_umol*1.35,
-#                                          ifelse(Taxa %in% "Euphausiacea",O2_umol*1.35,
-#                                                 ifelse(Taxa %in% "Mollusca",O2_umol*0.94,
-#                                                        O2_umol*0.87))))))
-
+# sub1$CO2<-(sub1$O2_umol)*0.87 #Converts between O2 and CO2 using a general RQ 
+# #sub1$CO2<-with(sub1, ifelse(Taxa %in% "Copepoda", O2_umol*0.87,
+# #                            ifelse(Taxa %in% "Chaetognatha", O2_umol*1.35,
+# #                                   ifelse(Taxa %in% "Amphipoda", O2_umol*1.35,
+# #                                          ifelse(Taxa %in% "Euphausiacea",O2_umol*1.35,
+# #                                                 ifelse(Taxa %in% "Mollusca",O2_umol*0.94,
+# #                                                        O2_umol*0.87))))))
 
 
-summary(sub1)
+
+# summary(sub1)
 
 # The workflow to this point _should have been_ encapsuled in
 # "Gradients_first_run.txt/csv". However, Taxa are not included in the supplied
@@ -188,57 +194,167 @@ summary(sub1)
 
 write.csv(sub1,file=paste
           ("C:/Users/amy.maas/Desktop/MOC_Ecotaxa_Analysis/Gradients/Gradients_first_run.txt", sep=""),row.names=F)
-
 sub1 <- readr::read_csv("Gradients_first_run.csv") # but missing Taxa!
 
 ###I STOPPED CHECKING THE EDITING HERE
 
 ##BINNING CODE
 #remove non-living
-a<-"not-living"
-M_filt<-filter(sub1,!grepl(a, Taxa))
-summary(M_filt)
+# a<-"not-living"
+# M_filt<-filter(sub1,!grepl(a, Taxa))
+# summary(M_filt)
 
-sub1 |>
-dplyr::filter(!grepl("not-living", Taxa)) |>
+M_filt <- sub1 |>
+  dplyr::filter(
+    !grepl(
+      pattern = "not-living",
+      x = Taxa,
+      ignore.case = TRUE
+    )
+  )
 
-B<-as.character(c(seq(0.25, 74, by=0.25)))
-M_filt$bin<-cut(M_filt$esd_mm, breaks=c(seq(0.25, 74.25, by=0.25)), labels=B)
-M_filt$bin<-factor(M_filt$bin)
-M_filt$Nbin<-as.numeric(as.character(M_filt$bin))
-M_filt$net<-as.factor(M_filt$net)
+B <- as.character(
+  c(
+    seq(
+      from = 0.25,
+      to   = 74,
+      by   = 0.25
+    )
+  )
+)
 
-summary(M_filt)
+M_filt$bin <- cut(
+  x = M_filt$esd_mm,
+  breaks = c(
+    seq(
+      from = 0.25,
+      to   = 74.25,
+      by   = 0.25
+    )
+  ),
+  labels = B
+)
 
-summary<-M_filt%>%group_by(cruise,station,D_N,net,bin)%>%
-  summarize(count=n(),depth=(mean(Min_depth)+mean(Max_depth))/2,max_depth=(Max_depth),hdif=median(hdif),split=median(split),
-            freq=count/split,tv=mean(Tow_Vol), Density_m3=freq/tv, bin2=mean(Nbin),
-            NBV_m3=(sum(vol)/split/tv),BM_m3=(sum(DW)/split/tv), oxy_m3=(sum(O2_umol))/tv/split,
-            CO2_m3=(sum(CO2)/tv/split),Abundance_m2=(freq/tv*hdif),NBV_m2=NBV_m3*hdif,
-            BM_m2=BM_m3*hdif, oxy_m2=oxy_m3*hdif,CO2_m2=CO2_m3*hdif) 
+M_filt$bin  <- factor(M_filt$bin)
+M_filt$Nbin <- as.numeric(as.character(M_filt$bin))
+M_filt$net  <- as.factor(M_filt$net)
+
+# summary(M_filt)
+
+(
+  summary <- M_filt |>
+    dplyr::mutate(
+      D_N       = object_sunpos,    # SRE: rename to match Amy workflow
+      station   = sample_stationid, # SRE: rename to match Amy workflow
+      Min_depth = as.numeric(Min_depth),
+      Max_depth = as.numeric(Max_depth),
+      hdif      = as.numeric(hdif),
+      split     = as.numeric(split),
+      Tow_Vol   = as.numeric(Tow_Vol),
+      vol       = as.numeric(vol),
+      DW        = as.numeric(DW),
+      O2_umol   = as.numeric(O2_umol),
+      CO2       = as.numeric(CO2)
+    ) |>
+    dplyr::group_by(
+      cruise,
+      station,
+      D_N,
+      net,
+      bin
+    ) |>
+    dplyr::summarize(
+      count        = dplyr::n(),
+      depth        = (mean(Min_depth) + mean(Max_depth)) / 2,
+      max_depth    = max(Max_depth), # SRE: added max()
+      hdif         = median(hdif),
+      split        = median(split),
+      freq         = count / split,
+      tv           = mean(Tow_Vol),
+      Density_m3   = freq / tv,
+      bin2         = mean(Nbin),
+      NBV_m3       = (sum(vol) / split / tv),
+      BM_m3        = (sum(DW) / split / tv),
+      oxy_m3       = (sum(O2_umol)) / tv / split,
+      CO2_m3       = (sum(CO2) / tv / split),
+      Abundance_m2 = (freq / tv * hdif),
+      NBV_m2       = NBV_m3 * hdif,
+      BM_m2        = BM_m3 * hdif,
+      oxy_m2       = oxy_m3 * hdif,
+      CO2_m2       = CO2_m3 * hdif
+    )
+)
+
+# summary<-M_filt%>%group_by(cruise,station,D_N,net,bin)%>%
+#   summarize(count=n(),depth=(mean(Min_depth)+mean(Max_depth))/2,max_depth=(Max_depth),hdif=median(hdif),split=median(split),
+#             freq=count/split,tv=mean(Tow_Vol), Density_m3=freq/tv, bin2=mean(Nbin),
+#             NBV_m3=(sum(vol)/split/tv),BM_m3=(sum(DW)/split/tv), oxy_m3=(sum(O2_umol))/tv/split,
+#             CO2_m3=(sum(CO2)/tv/split),Abundance_m2=(freq/tv*hdif),NBV_m2=NBV_m3*hdif,
+#             BM_m2=BM_m3*hdif, oxy_m2=oxy_m3*hdif,CO2_m2=CO2_m3*hdif) 
 
 write.csv(summary,file=paste
           ("C:/Users/amy.maas/Desktop/MOC_Ecotaxa_Analysis/Aggregates_July24/Aggregates_Aug24_bins.csv", sep=""),row.names=F)
 
 
-  ### BIOMASS SuMMARY
-  ggplot(data=(summary), aes(x=net, y=BM_m2, fill="#D72000", alpha=fraction))+geom_bar(stat="identity")+
-    scale_fill_manual(values=c("#D72000"))+
-    labs(x="Net", y=expression("Biomass (Dry Weight)" ~(mg~m^-2)), title=paste(H,"Total Biomass by Net"))+
-    theme(plot.title=element_text(face="bold",hjust=0.5))+
-    scale_alpha_discrete(range=c(0.5,1))+
-    guides(fill=FALSE)+
-    ylim(0,1000)
-  ggsave(filename=paste(Tow,"BM_bynet.png", sep="_"),path=paste(descr), width=6, height=6, units="in", dpi=300)
-  
-  ### OXYGEN USE SUMMARY
-  ggplot(data=(summary), aes(x=net, y=oxy_m2, fill="#FFAD0A", alpha=fraction))+geom_bar(stat="identity")+
-    scale_fill_manual(values="#FFAD0A")+
-    labs(x="Net", y=expression(mu*mol~O[2]*m^-2*h^-1), title=paste(H,"Apparent Oxygen Utilization by Net"))+
-    theme(plot.title=element_text(face="bold",hjust=0.5, size=11))+
-    scale_alpha_discrete(range=c(0.5,1))+
-    guides(fill=FALSE)+
-    ylim(0,8000)
+### BIOMASS SuMMARY
+ggplot2::ggplot(
+  data = summary,
+  mapping = ggplot2::aes(
+    x    = net,
+    y    = BM_m2,
+    fill = "#D72000"
+    # SRE: fraction was not included in the group by so how can it be used here?
+    # alpha = fraction
+  )
+) +
+  ggplot2::geom_bar(stat = "identity") +
+  ggplot2::scale_fill_manual(values = c("#D72000")) +
+  ggplot2::labs(
+    x = "Net",
+    y = expression("Biomass (Dry Weight)" ~ (mg ~ m^-2)),
+    # the object H has not been defined in this workflow
+    # title = paste(H, "Total Biomass by Net")
+    title = "Total Biomass by Net"
+  ) +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", hjust = 0.5)) +
+  ggplot2::scale_alpha_discrete(range = c(0.5, 1)) +
+  ggplot2::guides(fill = FALSE) +
+  ggplot2::ylim(0, 1000)
+
+
+  ggplot2::ggsave(filename=paste(Tow,"BM_bynet.png", sep="_"),path=paste(descr), width=6, height=6, units="in", dpi=300)
+
+### OXYGEN USE SUMMARY
+ggplot2::ggplot(
+  data = (summary),
+  mapping = ggplot2::aes(
+    x     = net,
+    y     = oxy_m2,
+    fill  = "#FFAD0A",
+    # SRE: fraction was not included in the group by so how can it be used here?
+    # alpha = fraction
+  )
+) +
+  ggplot2::geom_bar(stat = "identity") +
+  ggplot2::scale_fill_manual(values = "#FFAD0A") +
+  ggplot2::labs(
+    x     = "Net",
+    y     = expression(mu * mol ~ O[2] * m^-2 * h^-1),
+    # the object H has not been defined in this workflow
+    # title = paste(H, "Total Biomass by Net")
+    title = "Total Biomass by Net"
+  ) +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(
+      face  = "bold",
+      hjust = 0.5,
+      size  = 11
+    )
+  ) +
+  ggplot2::scale_alpha_discrete(range = c(0.5, 1)) +
+  ggplot2::guides(fill = FALSE) +
+  ggplot2::ylim(0, 8000)
+
   ggsave(filename=paste(Tow,"AOU_bynet.png", sep="_"),path=paste(descr), width=6, height=6, units="in", dpi=300)
   
 
@@ -254,9 +370,17 @@ WF_sub<-WF%>%group_by(net,bin)%>%summarize(Density_m3=sum(Density_m3),Abundance_
 WF_sub$binN<-as.numeric(as.character(WF_sub$bin))
 
 # FILLS IN THE DEPTH INTERVALS FOR THE SPECIFIC MOCNESS (there has to be a way you can auto-populate this from the metadata)
-#M12-M13    
-net_labs<-c("0-50 m","50-200 m","200-300 m","300-400 m", "400-550 m",
-            "550-700 m","700-900 m", "900-1000 m")
+# M12-M13
+net_labs <- c(
+  "0-50 m",
+  "50-200 m",
+  "200-300 m",
+  "300-400 m",
+  "400-550 m",
+  "550-700 m",
+  "700-900 m",
+  "900-1000 m"
+)
 
 #NAME OF THE MOCNESS
 Title<-"Oct 2018 (Day)"
