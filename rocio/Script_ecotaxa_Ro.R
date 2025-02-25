@@ -22,6 +22,7 @@ packages <- c("tidyr", "dplyr", "readr", "stringr", "data.table", "ggplot2",
               "vegan", "morphr", "purrr", "imager", "ggrepel", "cowplot", "Nmisc", "grid")
 
 # Install and load packages if not already installed
+
 package.check <- lapply(packages, FUN = function(x) {
   if (!require(x, character.only = TRUE)) {
     install.packages(x, dependencies = TRUE)
@@ -32,15 +33,20 @@ package.check <- lapply(packages, FUN = function(x) {
 ## Data Import and Setup ####
 
 # Set the working directory (user should replace with their own path)
-setwd("/Users/rociorodriguez/ASU Dropbox/Rocio Rodriguez Perez/ZoopGroup_LAJ/Projects/Gradients_20-8162/CIREN/Rocio")  # Update with the correct path
+# setwd("/Users/rociorodriguez/ASU Dropbox/Rocio Rodriguez Perez/ZoopGroup_LAJ/Projects/Gradients_20-8162/CIREN/Rocio")  # Update with the correct path
+
+
 
 # Reads the Ecotaxa file
-data <- readr::read_csv(here::here("rocio", "ecotaxa_export_5421_20241205_1741.csv"))
-head(data)
+# data <- readr::read_csv(here::here("rocio", "ecotaxa_export_5421_20241205_1741.csv"))
+data <- readr::read_csv("/scratch/srearl/ciren/rocio/ecotaxa_export_5421_20241205_1741.csv")
+
+# head(data)
 
 # Reads the Hydrography file
-env_data <- readr::read_csv(here::here("rocio", "Gradients_MOCNESS_net_hydrography.csv"))
-head(env_data)
+env_data <- readr::read_csv("/scratch/srearl/ciren/rocio/Gradients_MOCNESS_net_hydrography.csv")
+# head(env_data)
+
 
 ## Data Handling ####
 
@@ -102,6 +108,7 @@ data_p[, c("Temp", "Sal", "Fluor", "O2", "Depth_max", "Depth_min")] <- vegan::de
 spe <- data_p[, 23:89] # Specify the columns of the morphological variables 
 YJ_trans <- cellWise::transfo(spe, type = "YJ")$Y # Perform a Yeo-Johnson transformation on the morphological variables 
 
+
 data_t1 <- data_p |>
   # Remove the original morphological variables from the data
   dplyr::select(-one_of(colnames(spe))) |>
@@ -161,12 +168,25 @@ data_t1 <- data_t1 |>
 # Subset the data to only include rows where the "annotation_category" column is equal to "Calanoida"
 Cal_data <- subset(data_t1, annotation_category == "Calanoida")
 
-
 # Image Processing -------------------------------------------------------------
 
 # Add image paths for each data entry
-images_directory <- "imgs/"
-Cal_data <- Cal_data %>% mutate(img_path = str_c(images_directory, id, ".jpg"))
+images_directory <- "/scratch/srearl/imgs/"
+# images_directory <- "imgs/"
+
+Cal_data <- Cal_data |>
+  dplyr::mutate(img_path = stringr::str_c(images_directory, id, ".jpg"))
+
+# SRE:save to parquet
+# arrow::write_parquet(
+#   x = Cal_data,
+#   sink = "cal_data.parquet"
+# )
+
+# --- start sbatch image_chop
+
+from_parquet <- arrow::read_parquet("cal_data.parquet")
+identical(Cal_data, from_parquet)
 
 # Create directory for cropped images
 if (!dir.exists("cropped_imgs")) {
@@ -175,29 +195,55 @@ if (!dir.exists("cropped_imgs")) {
 
 # Function to crop images
 img_chop <- function(img_path, bottom = 0, save_path = "cropped_imgs") {
+  
   # Load the image
-  img <- load.image(img_path) 
+  img <- imager::load.image(img_path) 
+  
   # Get the width of the image
-  w <- width(img) 
+  w <- imager::width(img) 
+  
   # Get the height of the image
-  h <- height(img) 
+  h <- imager::height(img) 
+  
   # Crop the image at the bottom
   cropped_img <- img[1:w, 1:(h-bottom), , , drop = FALSE] 
+  # print(cropped_img)
+  
   # Get the image name
   img_name <- basename(img_path)
+  
   # Construct the save path
-  save_img_path <- file.path(save_path, img_name) 
+  save_img_path <- file.path(save_path, img_name)
+  
   # Save the cropped image
-  save.image(cropped_img, save_img_path) 
+  imager::save.image(cropped_img, save_img_path)
+  
 }
 
+# just one
+# img_chop(Cal_data$img_path[1], bottom = 20)
+
 # Crop images
-Cal_data$img_path %>% purrr::walk(~ img_chop(.x, bottom = 20))
+# SRE: this would be a good call to parallelize
+Cal_data$img_path |>
+  purrr::walk(~ img_chop(.x, bottom = 20))
+
+# --- end sbatch image_chop
 
 # Add cropped image paths
-cropped_images_directory <- "cropped_imgs/"
-Cal_data <- Cal_data %>% mutate(cr_img_path = str_c(cropped_images_directory, id, ".jpg"))
+cropped_images_directory <- "~/cropped_imgs/"
 
+Cal_data <- Cal_data |>
+  dplyr::mutate(cr_img_path = stringr::str_c(cropped_images_directory, id, ".jpg"))
+
+# SRE:save to parquet
+arrow::write_parquet(
+  x = Cal_data,
+  sink = "/scratch/srearl/cal_data.parquet"
+)
+
+from_parquet <- arrow::read_parquet("/scratch/srearl/cal_data.parquet")
+identical(Cal_data, from_parquet)
 
 # Principal Components Analysis (PCA) ------------------------------------------
 
@@ -213,7 +259,19 @@ data_for_pca <- as.data.frame(
 
 # Convert all columns in data_for_pca to numeric
 data_for_pca <- data_for_pca |>
-  dplyr::mutate(across(everything(), as.numeric))
+  dplyr::mutate(across(everything(), as.numeric)) # |> dplyr::slice(1:10000)
+
+# SRE:save to parquet
+# arrow::write_parquet(
+#   x = data_for_pca,
+#   sink = "/scratch/srearl/data_for_pca.parquet"
+# )
+
+# not sure if as.data.frame is needed other than ensuring that identical is TRUE
+# from_parquet_pca <- as.data.frame(
+#   x = arrow::read_parquet("/scratch/srearl/data_for_pca.parquet")
+# )
+# identical(data_for_pca, from_parquet_pca)
 
 # Perform PCA
 res.pca <- FactoMineR::PCA(
@@ -224,10 +282,7 @@ res.pca <- FactoMineR::PCA(
   row.w      = weights
 )
 
-# Get PCA variables and create PCA plot with images
-pca.vars <- rbind(res.pca$var$coord, res.pca$quanti.sup$coord) |>
-  as.data.frame()
-
+# need sbatch to complete!
 images <- morphr::ggmorph_tile(
   space       = res.pca,
   imgs        = Cal_data$cr_img_path,
@@ -237,6 +292,13 @@ images <- morphr::ggmorph_tile(
   scale       = 0.003,
   adjust_grey = TRUE
 )
+
+# Get PCA variables and create PCA plot with images
+pca.vars <- rbind(
+  res.pca$var$coord,
+  res.pca$quanti.sup$coord
+) |>
+  as.data.frame()
 
 # PCA plot with arrows and labels
 images1 <- images +
@@ -260,12 +322,55 @@ ggsave("pca_plot_with_images.png", plot = images1)
 # SRE: pinch point?
 
 # Determine optimal number of clusters using the silhouette method
+Rprofmem("Rprofmem.out")
 sil_kmeans <- factoextra::fviz_nbclust(
-  x          = Cal_data[, variables],
+  x          = Cal_data[c(1:1000), variables],
+  # x          = Cal_data[, variables],
   FUNcluster = kmeans,
   method     = "silhouette"
 )
+Rprofmem(NULL)
+
+p <- profmem::profmem({
+  
+  sil_kmeans <- factoextra::fviz_nbclust(
+    x          = Cal_data[c(1:1000), variables],
+    # x          = Cal_data[, variables],
+    FUNcluster = kmeans,
+    method     = "silhouette"
+  )
+  
+})
+
+
+prof <- profvis::profvis({
+  
+  sil_kmeans <- factoextra::fviz_nbclust(
+    x          = Cal_data[c(1:1000), variables],
+    # x          = Cal_data[, variables],
+    FUNcluster = kmeans,
+    method     = "silhouette"
+  )
+  
+})
+
+
+# print(p, expr = FALSE)
+
+arrow::write_parquet(
+  x = Cal_data[, variables],
+  sink = "cal_data_vars.parquet"
+)
+
+# another approach but also fails
+clus_gap <- cluster::clusGap(
+  x = Cal_data[, variables],
+  FUN = kmeans,
+  K.max = 25
+)
+
 ggsave("optimal_clusters_silhouette.png", plot = sil_kmeans)
+
 print(sil_kmeans)
 
 # Perform k-means clustering
