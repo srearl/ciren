@@ -273,7 +273,10 @@ identical(Cal_data, from_parquet)
 
 # Prepare data for PCA
 weights <- as.data.frame(Cal_data[, "density"])
+colnames(weights) <- "density" # SRE: added to ensure as.numeric works on the generated column
 weights <- as.numeric(weights$density)
+
+
 data_for_pca <- as.data.frame(
   Cal_data[, c(
     "depth_max", "Temp", "Sal",
