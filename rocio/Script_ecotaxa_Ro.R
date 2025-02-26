@@ -119,6 +119,7 @@ data_p[, c("Temp", "Sal", "Fluor", "O2", "Depth_max", "Depth_min")] <- vegan::de
 spe <- data_p[, 23:89] # Specify the columns of the morphological variables 
 YJ_trans <- cellWise::transfo(spe, type = "YJ")$Y # Perform a Yeo-Johnson transformation on the morphological variables 
 
+# SRE: cellWise produces a list of which the Y object is the data matrix
 
 data_t1 <- data_p |>
   # Remove the original morphological variables from the data
@@ -128,6 +129,11 @@ data_t1 <- data_p |>
 
 # Store the transformed data in a separate object
 YJ_data <- YJ_trans
+
+# SRE: at this point we have (1) environmental variables that have been
+# standardized with deostand, (2) morphological variables that have been
+# transormed per Yeo-Johnson both as (a) part of data_t1 and (b) as a
+# standalone object (YJ_data), and (3) associated tow details.
 
 ## Morphological Variable Selection ####
 
@@ -279,6 +285,10 @@ data_for_pca <- as.data.frame(
 data_for_pca <- data_for_pca |>
   dplyr::mutate(across(everything(), as.numeric)) # |> dplyr::slice(1:10000)
 
+# SRE: PCA on environmental and morphological variables only on samples
+# identified as Calanoida. Curious mixing of dependent and independent
+# variables in a single analysis. Maybe a question for Rocio.
+
 # SRE:save to parquet
 # arrow::write_parquet(
 #   x = data_for_pca,
@@ -299,6 +309,13 @@ res.pca <- FactoMineR::PCA(
   graph      = FALSE,
   row.w      = weights
 )
+
+# Get PCA variables and create PCA plot with images
+pca.vars <- rbind(res.pca$var$coord, res.pca$quanti.sup$coord) |>
+  as.data.frame()
+
+# SRE: I can run the PCA but am unable to plot using the supplied code without
+# the image data.
 
 # need sbatch to complete!
 images <- morphr::ggmorph_tile(
