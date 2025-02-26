@@ -16,10 +16,12 @@
 # note for unix systems: ensure that the `cmake` system library is installed
 # note that `morphr` is not on CRAN: https://github.com/jiho/morphr
 
-packages <- c("tidyr", "dplyr", "readr", "stringr", "data.table", "ggplot2", 
-              "readxl", "ggpubr", "gridExtra", "RColorBrewer", "colorspace", 
-              "FactoMineR", "factoextra", "gginnards", "cellWise", "corrplot", 
-              "vegan", "morphr", "purrr", "imager", "ggrepel", "cowplot", "Nmisc", "grid")
+packages <- c(
+  "tidyr", "dplyr", "readr", "stringr", "data.table", "ggplot2",
+  "readxl", "ggpubr", "gridExtra", "RColorBrewer", "colorspace",
+  "FactoMineR", "factoextra", "gginnards", "cellWise", "corrplot",
+  "vegan", "morphr", "purrr", "imager", "ggrepel", "cowplot", "Nmisc", "grid"
+)
 
 # Install and load packages if not already installed
 
@@ -35,16 +37,25 @@ package.check <- lapply(packages, FUN = function(x) {
 # Set the working directory (user should replace with their own path)
 # setwd("/Users/rociorodriguez/ASU Dropbox/Rocio Rodriguez Perez/ZoopGroup_LAJ/Projects/Gradients_20-8162/CIREN/Rocio")  # Update with the correct path
 
+env <- "sol"
+env <- "local"
 
+if (env == "sol") {
+  this_path = "/scratch/srearl/ciren/rocio"
+} else if (env == "local") {
+  this_path = here::here("rocio")
+}
 
 # Reads the Ecotaxa file
 # data <- readr::read_csv(here::here("rocio", "ecotaxa_export_5421_20241205_1741.csv"))
-data <- readr::read_csv("/scratch/srearl/ciren/rocio/ecotaxa_export_5421_20241205_1741.csv")
+# data <- readr::read_csv("/scratch/srearl/ciren/rocio/ecotaxa_export_5421_20241205_1741.csv")
+data <- readr::read_csv(here::here(this_path, "ecotaxa_export_5421_20241205_1741.csv"))
 
 # head(data)
 
 # Reads the Hydrography file
-env_data <- readr::read_csv("/scratch/srearl/ciren/rocio/Gradients_MOCNESS_net_hydrography.csv")
+# env_data <- readr::read_csv("/scratch/srearl/ciren/rocio/Gradients_MOCNESS_net_hydrography.csv")
+env_data <- readr::read_csv(here::here(this_path, "Gradients_MOCNESS_net_hydrography.csv"))
 # head(env_data)
 
 
@@ -171,7 +182,14 @@ Cal_data <- subset(data_t1, annotation_category == "Calanoida")
 # Image Processing -------------------------------------------------------------
 
 # Add image paths for each data entry
-images_directory <- "/scratch/srearl/imgs/"
+
+if (env == "sol") {
+  images_directory <- here::here(this_path, "imgs")
+} else if (env == "local") {
+  images_directory <- "~/Desktop/images/imgs/"
+}
+
+# images_directory <- "/scratch/srearl/imgs/"
 # images_directory <- "imgs/"
 
 Cal_data <- Cal_data |>
