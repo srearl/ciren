@@ -402,12 +402,13 @@ arrow::write_parquet(
 
 # another approach but also fails
 clus_gap <- cluster::clusGap(
-  x = Cal_data[, variables],
+  x = Cal_data[c(1:1000), variables],
+  # x = Cal_data[, variables],
   FUN = kmeans,
   K.max = 25
 )
 
-ggsave("optimal_clusters_silhouette.png", plot = sil_kmeans)
+gsave("optimal_clusters_silhouette.png", plot = sil_kmeans)
 
 print(sil_kmeans)
 
@@ -628,7 +629,7 @@ for (region in unique(Cal_data$Region)) {
 
   # Save density difference plot for the region
   ggplot2::ggsave(
-    filename = paste0("density_difference_plot_", region, ".png"),
+    filename = paste0("/scratch/srearl/density_difference_plot_", region, ".png"),
     plot     = density_diff_plot,
     width    = 10,
     height   = 6
@@ -725,7 +726,7 @@ for (region in unique(Cal_data$Region)) {
   
   # Save density per cluster plot for the region
   ggplot2::ggsave(
-    filename = paste0("abund_plot_cal_", region, ".png"),
+    filename = paste0("/scratch/srearl/abund_plot_cal_", region, ".png"),
     plot     = dens_plot_cl,
     width    = 40,
     height   = 10,
@@ -870,7 +871,7 @@ for (region in unique(Cal_data$Region)) {
   
   # Save the final plot for the region as an image
   ggplot2::ggsave(
-    filename = paste0("final_plot_cal_", region, ".png"),
+    filename = paste0("/scratch/srearl/final_plot_cal_", region, ".png"),
     plot     = final_plot_cal,
     width    = 10,
     height   = 10,
