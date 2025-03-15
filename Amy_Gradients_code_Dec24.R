@@ -244,8 +244,8 @@ M_filt$net  <- as.factor(M_filt$net)
 (
   summary <- M_filt |>
     dplyr::mutate(
-      D_N       = object_sunpos,    # SRE: rename to match Amy workflow
-      station   = sample_stationid, # SRE: rename to match Amy workflow
+      # D_N       = object_sunpos,    # SRE: rename to match Amy workflow
+      # station   = sample_stationid, # SRE: rename to match Amy workflow
       Min_depth = as.numeric(Min_depth),
       Max_depth = as.numeric(Max_depth),
       hdif      = as.numeric(hdif),
@@ -258,7 +258,8 @@ M_filt$net  <- as.factor(M_filt$net)
     ) |>
     dplyr::group_by(
       cruise,
-      station,
+      cruise_moc_net,
+      # station,
       D_N,
       net,
       bin
@@ -457,7 +458,10 @@ ggsave(WFplot,filename=paste(Title,"Waterfall.png", sep=" "), path=paste(descr),
 
 ## This code gives you linear regressions and R2 of the correlation for each line.
 ## set the bins to exclude the nets with poor capture (particularly on the low end)
-WF_sub_trim<-WF_sub%>%filter(binN>0.01&binN<100)
+
+WF_sub_trim <- WF_sub |>
+  dplyr::filter(binN > 0.01 & binN < 100)
+
 dt<-data.table(WF_sub_trim, key="net")
 fits<-lapply(unique(dt$net),function(z){
   summary(lm(log(Abundance_m2)~log(binN), data=dt[J(z),], y=T))
@@ -490,16 +494,39 @@ I="Oct 2018" #SET THE NAME OF THE PAIR
 dir.create(paste("Output/PairedNets/",I, sep=""))
 
 #FILTER BIN SIZES FOR BOTH DAY AND NIGHT TO SELECTED RANGE
-day_bin_sub<-day_bin%>%filter(bin2 >=0.01&bin2<=100)
-day<-day_bin_sub%>%group_by(net)%>%summarize(Tot_BV_m3=sum(NBV_m3),Tot_BM_m3=sum(BM_m3), Tot_Ox_m3=sum(oxy_m3),
-                                             Tot_CO2_m3=sum(CO2_m3),Tot_BV_m2=sum(NBV_m2),
-                                             Tot_BM_m2=sum(BM_m2), Tot_Ox_m2=sum(oxy_m2),
-                                             Tot_CO2_m2=sum(CO2_m2),med_depth=mean(depth))
-night_bin_sub<-night_bin%>%filter(bin2 >=0.01&bin2<=100)
-night<-night_bin_sub%>%group_by(net)%>%summarize(Tot_BV_m3=sum(NBV_m3),Tot_BM_m3=sum(BM_m3), Tot_Ox_m3=sum(oxy_m3),
-                                                 Tot_CO2_m3=sum(CO2_m3),Tot_BV_m2=sum(NBV_m2),
-                                                 Tot_BM_m2=sum(BM_m2), Tot_Ox_m2=sum(oxy_m2),
-                                                 Tot_CO2_m2=sum(CO2_m2),med_depth=mean(depth))
+day_bin_sub <- day_bin %>%
+  filter(bin2 >= 0.01 & bin2 <= 100)
+
+day <- day_bin_sub %>%
+  group_by(net) %>%
+  summarize(
+    Tot_BV_m3 = sum(NBV_m3),
+    Tot_BM_m3 = sum(BM_m3),
+    Tot_Ox_m3 = sum(oxy_m3),
+    Tot_CO2_m3 = sum(CO2_m3),
+    Tot_BV_m2 = sum(NBV_m2),
+    Tot_BM_m2 = sum(BM_m2),
+    Tot_Ox_m2 = sum(oxy_m2),
+    Tot_CO2_m2 = sum(CO2_m2),
+    med_depth = mean(depth)
+  )
+
+night_bin_sub <- night_bin %>%
+  filter(bin2 >= 0.01 & bin2 <= 100)
+
+night <- night_bin_sub %>%
+  group_by(net) %>%
+  summarize(
+    Tot_BV_m3 = sum(NBV_m3),
+    Tot_BM_m3 = sum(BM_m3),
+    Tot_Ox_m3 = sum(oxy_m3),
+    Tot_CO2_m3 = sum(CO2_m3),
+    Tot_BV_m2 = sum(NBV_m2),
+    Tot_BM_m2 = sum(BM_m2),
+    Tot_Ox_m2 = sum(oxy_m2),
+    Tot_CO2_m2 = sum(CO2_m2),
+    med_depth = mean(depth)
+  )
 
 
 # If you are missing a net (like in M11) use this text to block it out
@@ -508,19 +535,34 @@ night<-night_bin_sub%>%group_by(net)%>%summarize(Tot_BV_m3=sum(NBV_m3),Tot_BM_m3
 # night<-filter(night,as.factor(net)!='n8')
 # night$net<-as.factor(night$net)
 
-#This is the standard code, but use it always
-DayNight<-data.frame("BV_Mig"=c(abs(day$Tot_BV_m2-night$Tot_BV_m2)), "BV_Res"=do.call(pmin,(as.data.frame(cbind(day$Tot_BV_m2,night$Tot_BV_m2)))),
-                     "BM_Mig"=c(abs(day$Tot_BM_m2-night$Tot_BM_m2)), "BM_Res"=do.call(pmin,(as.data.frame(cbind(day$Tot_BM_m2,night$Tot_BM_m2)))),
-                     "Ox_Mig"=c(abs(day$Tot_Ox_m2-night$Tot_Ox_m2)), "Ox_Res"=do.call(pmin,(as.data.frame(cbind(day$Tot_Ox_m2,night$Tot_Ox_m2)))),
-                     "CO2_Mig"=c(abs(day$Tot_CO2_m2-night$Tot_CO2_m2)),"CO2_Mig"=do.call(pmin,(as.data.frame(cbind(day$Tot_CO2_m2,night$Tot_CO2_m2)))),
-                     "BM_DVM"=c((day$Tot_BM_m2-night$Tot_BM_m2)),"BM_day"=c(day$Tot_BM_m2),"BM_night"=c(night$Tot_BM_m2),
-                     "BV_DVM"=c((day$Tot_BV_m2-night$Tot_BV_m2)),
-                     "Med_Depth"=as.factor(apply(as.data.frame(cbind(day$med_depth,night$med_depth)),1,FUN=mean)),
-                     "Net"=c(day$net))
+# This is the standard code, but use it always
+DayNight <- data.frame(
+  "BV_Mig" = c(abs(day$Tot_BV_m2 - night$Tot_BV_m2)),
+  "BV_Res" = do.call(pmin, (as.data.frame(cbind(day$Tot_BV_m2, night$Tot_BV_m2)))),
+  "BM_Mig" = c(abs(day$Tot_BM_m2 - night$Tot_BM_m2)),
+  "BM_Res" = do.call(pmin, (as.data.frame(cbind(day$Tot_BM_m2, night$Tot_BM_m2)))),
+  "Ox_Mig" = c(abs(day$Tot_Ox_m2 - night$Tot_Ox_m2)),
+  "Ox_Res" = do.call(pmin, (as.data.frame(cbind(day$Tot_Ox_m2, night$Tot_Ox_m2)))),
+  "CO2_Mig" = c(abs(day$Tot_CO2_m2 - night$Tot_CO2_m2)),
+  "CO2_Mig" = do.call(pmin, (as.data.frame(cbind(day$Tot_CO2_m2, night$Tot_CO2_m2)))),
+  "BM_DVM" = c((day$Tot_BM_m2 - night$Tot_BM_m2)),
+  "BM_day" = c(day$Tot_BM_m2),
+  "BM_night" = c(night$Tot_BM_m2),
+  "BV_DVM" = c((day$Tot_BV_m2 - night$Tot_BV_m2)),
+  "Med_Depth" = as.factor(apply(as.data.frame(cbind(day$med_depth, night$med_depth)), 1, FUN = mean)),
+  "Net" = c(day$net)
+)
+
 # This is the standard code, skip below if you have a missing net
-DN2<-data.frame("Net"=as.factor(c(1:8,1:8)),"M_R"=as.factor(c(rep.int("M",8), rep.int("R",8))),"BM"=c(DayNight$BM_Mig,DayNight$BM_Res), "BV"=c(DayNight$BV_Mig,DayNight$BV_Res),
-                "Ox"=c(DayNight$Ox_Mig,DayNight$Ox_Res), "CO2"=c(DayNight$CO2_Mig,DayNight$CO2_Res),
-                "Med_Depth"=as.factor(rep.int(DayNight$Med_Depth, 2)))
+DN2 <- data.frame(
+  "Net" = as.factor(c(1:8, 1:8)),
+  "M_R" = as.factor(c(rep.int("M", 8), rep.int("R", 8))),
+  "BM" = c(DayNight$BM_Mig, DayNight$BM_Res),
+  "BV" = c(DayNight$BV_Mig, DayNight$BV_Res),
+  "Ox" = c(DayNight$Ox_Mig, DayNight$Ox_Res),
+  "CO2" = c(DayNight$CO2_Mig, DayNight$CO2_Res),
+  "Med_Depth" = as.factor(rep.int(DayNight$Med_Depth, 2))
+)
 
 # Use this code if you are skipping a net
 #DN2<-data.frame("Net"=as.factor(c(1:7,1:7)),"M_R"=as.factor(c(rep.int("M",7), rep.int("R",7))),"BM"=c(DayNight$BM_Mig,DayNight$BM_Res), "BV"=c(DayNight$BV_Mig,DayNight$BV_Res),
@@ -536,23 +578,49 @@ d_labs=c("900","700","550","400","300","200","50","0")
 ## 12/13  c("900","700","550","400","300","200","50","0")
 
 
-plot1<-ggplot(data=DN2, aes(x=Med_Depth, y=BM,fill="grey7", alpha=M_R))+
-  scale_fill_manual(values=("grey7"))+
-  scale_alpha_discrete(range=c(0.5,1), labels=c("Migratory","Resident"), drop=FALSE)+
-  geom_col(position="stack", na.rm=FALSE)+coord_flip()+
-  labs(x="Minimum Net Depth (m)", y=expression("mg Biomass"~m^-2),
-       title="Dry Weight Biomass", alpha="")+
-  theme(plot.title=element_text(face="bold",hjust=0.5, size=12))+
-  guides(fill=FALSE)+
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.background = element_blank(), axis.line = element_line(colour = "black"),
-        axis.text.x = element_text(size=12),axis.text.y= element_text(size=12, vjust=-1),
-        axis.ticks.y=(element_blank()),
-        axis.title=element_text(size=14),strip.text=element_text(size=14, face="bold"),
-        legend.text=element_text(size=11),
-        legend.position='bottom')+
-  scale_x_discrete(limits=c("1000",rev(levels(DN2$Med_Depth))),labels=rev(c(rev(d_labs),"1000")), drop=FALSE)+
-  scale_y_continuous(limits=c(0,500))
+plot1 <- ggplot(
+  data = DN2,
+  aes(
+    x     = Med_Depth,
+    y     = BM,
+    fill  = "grey7",
+    alpha = M_R
+  )
+) +
+  scale_fill_manual(values = ("grey7")) +
+  scale_alpha_discrete(
+    range  = c(0.5, 1),
+    labels = c("Migratory", "Resident"),
+    drop   = FALSE
+    ) +
+  geom_col(position = "stack", na.rm = FALSE) +
+  coord_flip() +
+  labs(
+    x     = "Minimum Net Depth (m)",
+    y     = expression("mg Biomass" ~ m^-2),
+    title = "Dry Weight Biomass", alpha = ""
+  ) +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 12)) +
+  guides(fill = FALSE) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    axis.line        = element_line(colour = "black"),
+    axis.text.x      = element_text(size = 12),
+    axis.text.y      = element_text(size = 12, vjust = -1),
+    axis.ticks.y     = (element_blank()),
+    axis.title       = element_text(size = 14),
+    strip.text       = element_text(size = 14, face = "bold"),
+    legend.text      = element_text(size = 11),
+    legend.position  = "bottom"
+  ) +
+  scale_x_discrete(
+    limits = c("1000", rev(levels(DN2$Med_Depth))),
+    labels = rev(c(rev(d_labs), "1000")), drop = FALSE
+  ) +
+  scale_y_continuous(limits = c(0, 500))
+
 plot2<-ggplot(data=DN2, aes(x=Med_Depth, y=Ox, fill="grey7", alpha=M_R))+
   scale_fill_manual(values=("grey7"))+scale_alpha_discrete(range=c(0.5,1), labels=c("Migratory","Resident"))+
   geom_col(position="stack")+coord_flip()+
@@ -624,22 +692,50 @@ d_labs=c("900","700","550","400","300","200","50","0")
 ## 12/13  c("900","700","550","400","300","200","50","0")
 
 
-day2$bin<-as.factor(day2$bin)
-night2$bin<-as.factor(night2$bin)
-dn.hm<-merge(day2,night2, by.x=c("net","bin","fraction"),by.y=c("net","bin","fraction"),all.x=TRUE,all.y=TRUE)
+day2$bin <- as.factor(day2$bin)
+
+night2$bin <- as.factor(night2$bin)
+
+dn.hm <- merge(
+  day2,
+  night2,
+  by.x = c("net", "bin", "fraction"),
+  by.y = c("net", "bin", "fraction"),
+  all.x = TRUE,
+  all.y = TRUE
+)
+
 head(dn.hm)
+
 summary(dn.hm)
-dn.hm[is.na(dn.hm)]<-0
-dn.hm2<-dn.hm%>%group_by(net,bin)%>%summarize(BVm3_day=sum(NBV_m3.x), BVm3_night=sum(NBV_m3.y),
-                                              BVm2_day=sum(NBV_m2.x), BVm2_night=sum(NBV_m2.y),
-                                              BMm2_day=sum(BM_m2.x), BMm2_night=sum(BM_m2.y),
-                                              Oxm2_day=sum(oxy_m2.x),Oxm2_night=sum(oxy_m2.y),
-                                              CO2m2_day=sum(CO2_m2.x),CO2m2_night=sum(CO2_m2.y))
+dn.hm[is.na(dn.hm)] <- 0
+
+dn.hm2 <- dn.hm %>%
+  group_by(net, bin) %>%
+  summarize(
+    BVm3_day = sum(NBV_m3.x),
+    BVm3_night = sum(NBV_m3.y),
+    BVm2_day = sum(NBV_m2.x),
+    BVm2_night = sum(NBV_m2.y),
+    BMm2_day = sum(BM_m2.x),
+    BMm2_night = sum(BM_m2.y),
+    Oxm2_day = sum(oxy_m2.x),
+    Oxm2_night = sum(oxy_m2.y),
+    CO2m2_day = sum(CO2_m2.x),
+    CO2m2_night = sum(CO2_m2.y)
+  )
 
 #write.csv(dn.hm2,file=paste("Output/PairedNets/",I,"/",J,"_DayNight_dnhm2.csv",sep=""),row.names=FALSE)
 
-dn.hm3<-dn.hm2%>%mutate(BV_m3=(BVm3_day-BVm3_night), BV_m2=(BVm2_day-BVm2_night),BM_m2=(BMm2_day-BMm2_night),
-                        Ox=(Oxm2_day-Oxm2_night),CO2=(CO2m2_day-CO2m2_night)) %>%select(,c(1:2,13:17))  
+dn.hm3 <- dn.hm2 %>%
+  mutate(
+    BV_m3 = (BVm3_day - BVm3_night),
+    BV_m2 = (BVm2_day - BVm2_night),
+    BM_m2 = (BMm2_day - BMm2_night),
+    Ox = (Oxm2_day - Oxm2_night),
+    CO2 = (CO2m2_day - CO2m2_night)
+  ) %>%
+  select(, c(1:2, 13:17))
 
 #write.csv(dn.hm3,file=paste("Output/PairedNets/",I,"/",J,"_DayNight_dnhm3.csv",sep=""),row.names=FALSE)
 dn.hm3<-as.data.frame(dn.hm3)
