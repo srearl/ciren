@@ -13,7 +13,42 @@ nullstr = 'NA'
 
 ## -----
 
+
+annotate_daytime <- function(eco_taxa_df) {
+
+  eco_taxa_df <- eco_taxa_df |>
+    dplyr::mutate(
+      day = SunCalcMeeus::is_daytime(
+        date = as.POSIXct(
+          x      = paste(object_date, object_time),
+          format = "%Y-%m-%d %H:%M:%S"
+        ),
+        geocode = tibble::tibble(
+          lat = object_lat,
+          lon = object_lon
+        ),
+        twilight = "astronomical"
+      )
+    )
+
+  return(eco_taxa_df)
+
+}
+
+
 load_eco_taxa <- function(file_path) {
+
+  if (tools::file_ext(file_path) != "tsv") {
+    stop("provided file must be of type tsv")
+  }
+
+  eco_taxa <- read.delim(
+    file             = file_path,
+    sep              = "\t",
+    header           = TRUE,
+    stringsAsFactors = FALSE
+    )
+  # eco_taxa <- readr::read_delim(file_path)
 
   ensure_numeric <- c(
     "object_area",
@@ -24,8 +59,6 @@ load_eco_taxa <- function(file_path) {
     "object_depth_min",
     "acq_sub_part"
   )
-
-  eco_taxa <- readr::read_delim(file_path)
 
   eco_taxa <- eco_taxa |>
     janitor::clean_names() |>
@@ -108,14 +141,35 @@ load_eco_taxa <- function(file_path) {
         TRUE ~ NA_real_
       ),
       volume = (4 / 3) * pi * ((object_minor_mm * 0.5)^2) * (object_major_mm / 2),
-      hdif = object_depth_max - object_depth_min, # SRE: are these the correct depths?
+      hdif = object_depth_max - object_depth_min,
       split = (1 / acq_sub_part)
     )
 
-  return(eco_taxa)
+    eco_taxa |>
+      pointblank::col_vals_not_null(
+        columns = cruise_moc_net,
+        actions = pointblank::warn_on_fail(),
+        label   = "check that all records have a moc_net_value",
+        active  = TRUE
+      )
+
+    eco_taxa <- annotate_daytime(eco_taxa)
+
+    return(eco_taxa)
+
 }
 
+## aggregates
+
 eco_taxa <- load_eco_taxa("~/Desktop/aggregates/ecotaxa_export_5446_20250307_1942.tsv")
+
+moc_env <- readr::read_csv("~/localRepos/ciren/Aggregates_MOCNESS_net_hydrography.csv") |>
+  janitor::clean_names() |>
+  dplyr::rename(cruise_moc_net = cruise_tow_net) |>
+  dplyr::mutate(cruise_moc_net = tolower(cruise_moc_net))
+
+## gradients
+
 eco_taxa <- load_eco_taxa("~/Desktop/gradients/ecotaxa_export_5421_20250307_2215.tsv")
 
 moc_env <- readr::read_csv("~/localRepos/ciren/Amy_Gradients_MOCNESS_net_hydrography.csv") |>
@@ -150,16 +204,16 @@ eco_env <- eco_env |>
       TRUE ~ 0.0550 * volume # otherwise use Calanoida
       # TRUE ~ NA_real_
     ),
-    o2_umol = (exp(-0.339 + (0.801 * log(dry_weight))) + 0.069 * (15)) / 22.4,
-    co2 = (o2_umol) * 0.87 # o2 ~ co2 using a general rq
+    o2_umol  = (exp(-0.339 + (0.801 * log(dry_weight))) + 0.069 * (15)) / 22.4,
+    co2_umol = (o2_umol) * 0.87 # o2 ~ co2 using a general rq
   )
 
 eco_env <- eco_env |>
   # filter non-living
   dplyr::filter(
     !grepl(
-      pattern = "not-living",
-      x = object_annotation_hierarchy,
+      pattern     = "not-living|dead|part",
+      x           = object_annotation_hierarchy,
       ignore.case = TRUE
     )
   ) |>
@@ -186,37 +240,39 @@ eco_env <- eco_env |>
     )
   )
 
+summary_columns <- c(
+  "cruise_moc_net",
+  "station",
+  "d_n",
+  "bin",
+  "fraction"
+)
+
 summary_all <- eco_env |>
-  dplyr::group_by(
-    cruise,
-    cruise_moc_net,
-    station,
-    d_n,
-    net,
-    bin
-  ) |>
+  dplyr::group_by(dplyr::across(any_of(summary_columns))) |>
   dplyr::summarize(
-    count           = dplyr::n(),
-    depth_mean      = (mean(object_depth_min) + mean(object_depth_max)) / 2,
-    depth_min       = min(object_depth_min),
-    depth_max       = max(object_depth_max),
-    hdif_median     = median(hdif), # SRE: each net should have the same value so is median needed?
-    split_median    = median(split),
-    frequency       = count / split_median, # use median split here and remainder?
-    avg_sample_vol  = mean(sample_tot_vol), # from eco_taxa is this the correct volume?
-    density_m3      = frequency / avg_sample_vol,
-    # avg_bin_number  = mean(as.numeric(as.character(bin))),
-    norm_bio_vol_m3 = (sum(volume) / split_median / avg_sample_vol),
-    biomass_m3      = (sum(dry_weight) / split_median / avg_sample_vol),
-    o2_m3           = (sum(o2_umol)) / avg_sample_vol / split_median,
-    co2_m3          = (sum(co2) / avg_sample_vol / split_median),
-    abundance_m2    = (frequency / avg_sample_vol * hdif_median),
-    norm_bio_vol_m2 = norm_bio_vol_m3 * hdif_median,
-    biomass_m2      = biomass_m3 * hdif_median,
-    o2_m2           = o2_m3 * hdif_median,
-    co2_m2          = co2_m3 * hdif_median
-  ) |>
-  dplyr::ungroup()
+    count            = dplyr::n(),
+    depth_mean       = (mean(object_depth_min) + mean(object_depth_max)) / 2,
+    depth_min        = min(object_depth_min),
+    depth_max        = max(object_depth_max),
+    # pare hdif and split to a single value each for calculations
+    hdif             = median(hdif),
+    split            = median(split),
+    frequency        = count / split,
+    avg_sample_vol   = mean(sample_tot_vol),
+    density_m3       = frequency / avg_sample_vol,
+    # avg_bin_number = mean(as.numeric(as.character(bin))),
+    norm_bio_vol_m3  = (sum(volume) / split / avg_sample_vol),
+    norm_bio_vol_m2  = norm_bio_vol_m3 * hdif,
+    biomass_m3       = (sum(dry_weight) / split / avg_sample_vol),
+    biomass_m2       = biomass_m3 * hdif,
+    o2_m3            = (sum(o2_umol)) / avg_sample_vol / split,
+    o2_m2            = o2_m3 * hdif,
+    co2_m3           = (sum(co2_umol) / avg_sample_vol / split),
+    co2_m2           = co2_m3 * hdif,
+    abundance_m2     = (frequency / avg_sample_vol * hdif),
+    .groups          = "drop"
+  )
 
 
 ### BIOMASS SUMMARY
