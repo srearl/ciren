@@ -577,49 +577,52 @@ d_labs=c("900","700","550","400","300","200","50","0")
 ## 10/11  c("850","700","550","400","250","175","50","0")
 ## 12/13  c("900","700","550","400","300","200","50","0")
 
-
-plot1 <- ggplot(
-  data = DN2,
-  aes(
-    x     = Med_Depth,
-    y     = BM,
-    fill  = "grey7",
-    alpha = M_R
-  )
-) +
-  scale_fill_manual(values = ("grey7")) +
-  scale_alpha_discrete(
-    range  = c(0.5, 1),
-    labels = c("Migratory", "Resident"),
-    drop   = FALSE
+(
+  plot1 <- ggplot2::ggplot(
+    data = DN2,
+    ggplot2::aes(
+      x     = Med_Depth,
+      y     = BV,
+      # y     = BM,
+      fill  = "grey7",
+      alpha = M_R
+    )
+  ) +
+    ggplot2::scale_fill_manual(values = ("grey7")) +
+    ggplot2::scale_alpha_discrete(
+      range  = c(0.5, 1),
+      labels = c("Migratory", "Resident"),
+      drop   = FALSE
     ) +
-  geom_col(position = "stack", na.rm = FALSE) +
-  coord_flip() +
-  labs(
-    x     = "Minimum Net Depth (m)",
-    y     = expression("mg Biomass" ~ m^-2),
-    title = "Dry Weight Biomass", alpha = ""
-  ) +
-  theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 12)) +
-  guides(fill = FALSE) +
-  theme(
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    panel.background = element_blank(),
-    axis.line        = element_line(colour = "black"),
-    axis.text.x      = element_text(size = 12),
-    axis.text.y      = element_text(size = 12, vjust = -1),
-    axis.ticks.y     = (element_blank()),
-    axis.title       = element_text(size = 14),
-    strip.text       = element_text(size = 14, face = "bold"),
-    legend.text      = element_text(size = 11),
-    legend.position  = "bottom"
-  ) +
-  scale_x_discrete(
-    limits = c("1000", rev(levels(DN2$Med_Depth))),
-    labels = rev(c(rev(d_labs), "1000")), drop = FALSE
-  ) +
-  scale_y_continuous(limits = c(0, 500))
+    ggplot2::geom_col(position = "stack", na.rm = FALSE) +
+    ggplot2::coord_flip() +
+    ggplot2::labs(
+      x = "Minimum Net Depth (m)",
+      y = expression("mg Biomass" ~ m^-2),
+      title = "Dry Weight Biomass",
+      alpha = ""
+    ) +
+    ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", hjust = 0.5, size = 12)) +
+    ggplot2::guides(fill = FALSE) +
+    ggplot2::theme(
+      panel.grid.major = ggplot2::element_blank(),
+      panel.grid.minor = ggplot2::element_blank(),
+      panel.background = ggplot2::element_blank(),
+      axis.line        = ggplot2::element_line(colour = "black"),
+      axis.text.x      = ggplot2::element_text(size = 12),
+      axis.text.y      = ggplot2::element_text(size = 12, vjust = -1),
+      axis.ticks.y     = (ggplot2::element_blank()),
+      axis.title       = ggplot2::element_text(size = 14),
+      strip.text       = ggplot2::element_text(size = 14, face = "bold"),
+      legend.text      = ggplot2::element_text(size = 11),
+      legend.position  = "bottom"
+    ) +
+    ggplot2::scale_x_discrete(
+      limits = c("1000", rev(levels(DN2$Med_Depth))),
+      labels = rev(c(rev(d_labs), "1000")), drop = FALSE
+    ) # +
+    # ggplot2::scale_y_continuous(limits = c(0, 500))
+)
 
 plot2<-ggplot(data=DN2, aes(x=Med_Depth, y=Ox, fill="grey7", alpha=M_R))+
   scale_fill_manual(values=("grey7"))+scale_alpha_discrete(range=c(0.5,1), labels=c("Migratory","Resident"))+
