@@ -1,40 +1,122 @@
-eco_taxa <- readr::read_delim("~/Desktop/aggregates/ecotaxa_export_5446_20250307_1942.tsv")
-eco_taxa <- readr::read_delim("~/Desktop/gradients/ecotaxa_export_5421_20250307_2215.tsv")
+## duck
 
-eco_taxa <- eco_taxa |>
-  janitor::clean_names() |>
-  tidyr::separate_wider_delim(
-    col = object_id,
-    delim = "_",
-    names = c(
-      "cruise",
-      "moc",
-      "net",
-      "fraction"
-    ),
-    too_few = c("debug"),
-    too_many = c("drop")
-  ) |>
-  dplyr::mutate(
-    net = as.factor(net),
-    # do not convert to cruise_moc_net to factor!
-    cruise_moc_net = paste(
-      cruise,
-      moc,
-      net,
-      sep = "_"
-    ),
-    # SRE: why are the allometric eqs different?
-    cruise_moc_net  = tolower(cruise_moc_net),
-    object_area_mm2 = object_area * 0.000112, # 0.00002809 for 4800
-    object_major_mm = object_major * 0.010583, # 0.0053 for 4800
-    object_minor_mm = object_minor * 0.010583, # 0.0053 for 4800
-    object_esd_mm   = object_esd * 0.010583,
-    volume          = (4 / 3) * pi * ((object_minor_mm * 0.5)^2) * (object_major_mm / 2),
-    hdif            = object_depth_max - object_depth_min, # SRE: are these the correct depths?
-    split           = (1 / acq_sub_part)
+CREATE TABLE agg AS 
+SELECT * FROM read_csv(
+  'eco_taxa.csv',
+types={
+  'process_time': 'VARCHAR',
+  'acq_scan_time': 'VARCHAR',
+  'acq_lut_16b_median': 'VARCHAR'
+  },
+nullstr = 'NA'
+) ;
+
+## -----
+
+load_eco_taxa <- function(file_path) {
+
+  ensure_numeric <- c(
+    "object_area",
+    "object_major",
+    "object_minor",
+    "object_esd",
+    "object_depth_max",
+    "object_depth_min",
+    "acq_sub_part"
   )
 
+  eco_taxa <- readr::read_delim(file_path)
+
+  eco_taxa <- eco_taxa |>
+    janitor::clean_names() |>
+    tidyr::separate_wider_delim(
+      col = object_id,
+      delim = "_",
+      names = c(
+        "cruise",
+        "moc",
+        "net",
+        "fraction"
+      ),
+      too_few = c("debug"),
+      too_many = c("drop")
+    ) |>
+    dplyr::mutate(
+      net = as.factor(net),
+      dplyr::across(
+        .cols = dplyr::all_of(ensure_numeric),
+        .fns = as.numeric
+      ),
+      # do not convert cruise_moc_net to factor!
+      cruise_moc_net = paste(
+        cruise,
+        moc,
+        net,
+        sep = "_"
+      ),
+      cruise_moc_net = tolower(cruise_moc_net),
+      object_area_mm2 = dplyr::case_when(
+        grepl(
+          pattern = "4800",
+          x = process_img_resolution,
+          ignore.case = TRUE
+        ) ~ object_area * (0.005291667^2),
+        grepl(
+          pattern = "2400",
+          x = process_img_resolution,
+          ignore.case = TRUE
+        ) ~ object_area * (0.010583333^2),
+        TRUE ~ NA_real_
+      ),
+      object_major_mm = dplyr::case_when(
+        grepl(
+          pattern = "4800",
+          x = process_img_resolution,
+          ignore.case = TRUE
+        ) ~ object_major * 0.005291667,
+        grepl(
+          pattern = "2400",
+          x = process_img_resolution,
+          ignore.case = TRUE
+        ) ~ object_major * 0.010583333,
+        TRUE ~ NA_real_
+      ),
+      object_minor_mm = dplyr::case_when(
+        grepl(
+          pattern = "4800",
+          x = process_img_resolution,
+          ignore.case = TRUE
+        ) ~ object_minor * 0.005291667,
+        grepl(
+          pattern = "2400",
+          x = process_img_resolution,
+          ignore.case = TRUE
+        ) ~ object_minor * 0.010583333,
+        TRUE ~ NA_real_
+      ),
+      object_esd_mm = dplyr::case_when(
+        grepl(
+          pattern = "4800",
+          x = process_img_resolution,
+          ignore.case = TRUE
+        ) ~ object_esd * 0.005291667,
+        grepl(
+          pattern = "2400",
+          x = process_img_resolution,
+          ignore.case = TRUE
+        ) ~ object_esd * 0.010583333,
+        TRUE ~ NA_real_
+      ),
+      volume = (4 / 3) * pi * ((object_minor_mm * 0.5)^2) * (object_major_mm / 2),
+      hdif = object_depth_max - object_depth_min, # SRE: are these the correct depths?
+      split = (1 / acq_sub_part)
+    )
+
+  return(eco_taxa)
+}
+
+eco_taxa <- load_eco_taxa("~/Desktop/aggregates/ecotaxa_export_5446_20250307_1942.tsv")
+eco_taxa <- load_eco_taxa("~/Desktop/gradients/ecotaxa_export_5421_20250307_2215.tsv")
 
 moc_env <- readr::read_csv("~/localRepos/ciren/Amy_Gradients_MOCNESS_net_hydrography.csv") |>
   janitor::clean_names() |>
@@ -69,7 +151,7 @@ eco_env <- eco_env |>
       # TRUE ~ NA_real_
     ),
     o2_umol = (exp(-0.339 + (0.801 * log(dry_weight))) + 0.069 * (15)) / 22.4,
-    co2     = (o2_umol) * 0.87 # o2 ~ co2 using a general rq
+    co2 = (o2_umol) * 0.87 # o2 ~ co2 using a general rq
   )
 
 eco_env <- eco_env |>
@@ -118,7 +200,7 @@ summary_all <- eco_env |>
     depth_mean      = (mean(object_depth_min) + mean(object_depth_max)) / 2,
     depth_min       = min(object_depth_min),
     depth_max       = max(object_depth_max),
-    hdif_median     = median(hdif),
+    hdif_median     = median(hdif), # SRE: each net should have the same value so is median needed?
     split_median    = median(split),
     frequency       = count / split_median, # use median split here and remainder?
     avg_sample_vol  = mean(sample_tot_vol), # from eco_taxa is this the correct volume?
@@ -164,7 +246,7 @@ ggplot2::ggplot(
 
 ### OXYGEN USE SUMMARY
 ggplot2::ggplot(
-  data    = summary_all,
+  data = summary_all,
   mapping = ggplot2::aes(
     x     = net,
     y     = o2_m2,
@@ -313,18 +395,16 @@ day_night_sept_2022 <- summary_all |>
 
 str(day_night_sept_2022)
 
-numeric_columns <- day_night_sept_2022 |> 
+numeric_columns <- day_night_sept_2022 |>
   dplyr::select(
     tidyselect::where(is.numeric)
-    ) |> 
+  ) |>
   colnames()
 
 estimate_day_night <- function(variable) {
-
   variable_sym <- rlang::sym(variable)
-  
-  if (grepl("depth", variable_sym, ignore.case = TRUE)) {
 
+  if (grepl("depth", variable_sym, ignore.case = TRUE)) {
     day_night_calcs <- day_night_sept_2022 |>
       dplyr::select(
         d_n,
@@ -346,14 +426,12 @@ estimate_day_night <- function(variable) {
       tidyr::expand_grid(
         MR = c("migratory", "resident")
       )
-      # below for WIDE
-      # dplyr::select(
-      #   -D,
-      #   -N
-      # )
-
+    # below for WIDE
+    # dplyr::select(
+    #   -D,
+    #   -N
+    # )
   } else {
-
     day_night_calcs <- day_night_sept_2022 |>
       dplyr::select(
         d_n,
@@ -381,20 +459,18 @@ estimate_day_night <- function(variable) {
         names_to = "MR",
         values_to = variable
       )
-      # below for WIDE
-      # dplyr::rename(
-      #   !!paste0(variable, "_mig") := migratory,
-      #   !!paste0(variable, "_res") := resident
-      # ) |>
-      # dplyr::select(
-      #   -D,
-      #   -N
-      # )
-
+    # below for WIDE
+    # dplyr::rename(
+    #   !!paste0(variable, "_mig") := migratory,
+    #   !!paste0(variable, "_res") := resident
+    # ) |>
+    # dplyr::select(
+    #   -D,
+    #   -N
+    # )
   }
 
   return(day_night_calcs)
-
 }
 
 # just one
@@ -482,7 +558,7 @@ day_night_long <- day_night_calcs |>
     cols = tidyselect::all_of(numerical_vars),
     names_to = "variable",
     values_to = "value"
-    )
+  )
 
 
 # Plot all variables in a faceted grid
@@ -523,8 +599,41 @@ ggplot2::ggplot(
   )
 
 
+# HEAT MAPS -------------
 
-
+summary_all |>
+  dplyr::mutate(bin_num = as.numeric(as.character(bin))) |>
+  dplyr::filter(
+    grepl(
+      pattern     = "nh1208",
+      x           = cruise_moc_net,
+      ignore.case = TRUE
+    ),
+    grepl(
+      pattern     = "_m7|_m8",
+      x           = cruise_moc_net,
+      ignore.case = TRUE
+    )
+    # bin_num >= 0.01 & bin_num <= 100
+  ) |>
+  dplyr::group_by(
+    bin,
+    net
+  ) |>
+  dplyr::summarise(
+    depth_mean      = sum(depth_mean),
+    density_m3      = sum(density_m3),
+    norm_bio_vol_m3 = sum(norm_bio_vol_m3),
+    biomass_m3      = sum(biomass_m3),
+    o2_m3           = sum(o2_m3),
+    co2_m3          = sum(co2_m3),
+    abundance_m2    = sum(abundance_m2),
+    norm_bio_vol_m2 = sum(norm_bio_vol_m2),
+    biomass_m2      = sum(biomass_m2),
+    o2_m2           = sum(o2_m2),
+    co2_m2          = sum(co2_m2),
+  ) |>
+  dplyr::ungroup()
 
 
 # SCRATCH ---------------
