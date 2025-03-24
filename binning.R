@@ -14,23 +14,69 @@ nullstr = 'NA'
 ## -----
 
 
-annotate_daytime <- function(eco_taxa_df) {
+annotate_daytime_parallel <- function(
+  eco_taxa_df,
+  workers = future::availableCores() - 1
+  ) {
+
+  # with join: 38.696 sec elapsed
+  # sans join: 1676.436 sec elapsed
+
+ grouped <- eco_taxa_df |>
+   dplyr::group_by(cruise_moc_net) |>
+   dplyr::summarize(
+     object_lat  = mean(object_lat, na.rm = TRUE),
+     object_lon  = mean(object_lon, na.rm = TRUE),
+     object_date = unique(object_date),
+     object_time = unique(object_time)
+   )
+  
+  # ensure that each group has only one unique date and time
+  if (
+    any(sapply(grouped$object_date, length) > 1) ||
+      any(sapply(grouped$object_time, length) > 1)
+  ) {
+    stop("Each group must have only one unique date and time.")
+  }
+  
+  # set up parallel backend
+  future::plan(future::multisession, workers = workers)
+  
+  # apply `is_daytime` in parallel for each row
+  grouped$is_day <- furrr::future_pmap_lgl(
+    list(
+      date = as.POSIXct(
+        x      = paste(grouped$object_date, grouped$object_time),
+        format = "%Y-%m-%d %H:%M:%S",
+        tz     = "UTC"
+      ),
+      lat = grouped$object_lat,
+      lon = grouped$object_lon
+    ),
+    function(date, lat, lon) {
+      SunCalcMeeus::is_daytime(
+        date = date,
+        geocode = tibble::tibble(
+          lat = lat,
+          lon = lon
+        ),
+        twilight = "nautical"
+      )
+    }
+  )
 
   eco_taxa_df <- eco_taxa_df |>
-    dplyr::mutate(
-      day = SunCalcMeeus::is_daytime(
-        date = as.POSIXct(
-          x      = paste(object_date, object_time),
-          format = "%Y-%m-%d %H:%M:%S"
+    dplyr::left_join(
+      y = grouped |>
+        dplyr::select(
+          cruise_moc_net,
+          is_day
         ),
-        geocode = tibble::tibble(
-          lat = object_lat,
-          lon = object_lon
-        ),
-        twilight = "astronomical"
-      )
-    )
-
+      by = "cruise_moc_net"
+    ) |>
+    dplyr::ungroup() |>
+    dplyr::mutate(is_day = as.logical(is_day))
+  
   return(eco_taxa_df)
 
 }
@@ -71,7 +117,7 @@ load_eco_taxa <- function(file_path) {
         "net",
         "fraction"
       ),
-      too_few = c("debug"),
+      too_few  = c("debug"),
       too_many = c("drop")
     ) |>
     dplyr::mutate(
@@ -89,55 +135,23 @@ load_eco_taxa <- function(file_path) {
       ),
       cruise_moc_net = tolower(cruise_moc_net),
       object_area_mm2 = dplyr::case_when(
-        grepl(
-          pattern = "4800",
-          x = process_img_resolution,
-          ignore.case = TRUE
-        ) ~ object_area * (0.005291667^2),
-        grepl(
-          pattern = "2400",
-          x = process_img_resolution,
-          ignore.case = TRUE
-        ) ~ object_area * (0.010583333^2),
+        grepl("4800", process_img_resolution, ignore.case = TRUE) ~ object_area * (0.005291667^2),
+        grepl("2400", process_img_resolution, ignore.case = TRUE) ~ object_area * (0.010583333^2),
         TRUE ~ NA_real_
       ),
       object_major_mm = dplyr::case_when(
-        grepl(
-          pattern = "4800",
-          x = process_img_resolution,
-          ignore.case = TRUE
-        ) ~ object_major * 0.005291667,
-        grepl(
-          pattern = "2400",
-          x = process_img_resolution,
-          ignore.case = TRUE
-        ) ~ object_major * 0.010583333,
+        grepl("4800", process_img_resolution, ignore.case = TRUE) ~ object_major * 0.005291667,
+        grepl("2400", process_img_resolution, ignore.case = TRUE) ~ object_major * 0.010583333,
         TRUE ~ NA_real_
       ),
       object_minor_mm = dplyr::case_when(
-        grepl(
-          pattern = "4800",
-          x = process_img_resolution,
-          ignore.case = TRUE
-        ) ~ object_minor * 0.005291667,
-        grepl(
-          pattern = "2400",
-          x = process_img_resolution,
-          ignore.case = TRUE
-        ) ~ object_minor * 0.010583333,
+        grepl("4800", process_img_resolution, ignore.case = TRUE) ~ object_minor * 0.005291667,
+        grepl("2400", process_img_resolution, ignore.case = TRUE) ~ object_minor * 0.010583333,
         TRUE ~ NA_real_
       ),
       object_esd_mm = dplyr::case_when(
-        grepl(
-          pattern = "4800",
-          x = process_img_resolution,
-          ignore.case = TRUE
-        ) ~ object_esd * 0.005291667,
-        grepl(
-          pattern = "2400",
-          x = process_img_resolution,
-          ignore.case = TRUE
-        ) ~ object_esd * 0.010583333,
+        grepl("4800", process_img_resolution, ignore.case = TRUE) ~ object_esd * 0.005291667,
+        grepl("2400", process_img_resolution, ignore.case = TRUE) ~ object_esd * 0.010583333,
         TRUE ~ NA_real_
       ),
       volume = (4 / 3) * pi * ((object_minor_mm * 0.5)^2) * (object_major_mm / 2),
@@ -145,17 +159,49 @@ load_eco_taxa <- function(file_path) {
       split = (1 / acq_sub_part)
     )
 
-    eco_taxa |>
-      pointblank::col_vals_not_null(
-        columns = cruise_moc_net,
-        actions = pointblank::warn_on_fail(),
-        label   = "check that all records have a moc_net_value",
-        active  = TRUE
-      )
+  # check for null cruise_moc_net and unique cruise_moc_net * object_date
+  agent <- pointblank::create_agent(tbl = eco_taxa) |>
+    pointblank::col_vals_not_null(columns = vars(cruise_moc_net)) |>
+    # pointblank::col_vals_not_null(columns = vars(object_date)) |>
+    pointblank::col_vals_lte(
+      columns = vars(unique_dates),
+      value = 1,
+      preconditions = function(x) {
+        x |>
+          dplyr::group_by(cruise_moc_net) |>
+          dplyr::summarize(unique_dates = dplyr::n_distinct(object_date)) |>
+          dplyr::ungroup()
+      }
+    ) |>
+    pointblank::interrogate()
 
-    eco_taxa <- annotate_daytime(eco_taxa)
 
-    return(eco_taxa)
+  if (agent$validation_set$all_passed[1] == FALSE) {
+
+    stop("encountered a NULL cruise_moc_net")
+
+  } else if (agent$validation_set$all_passed[2] == FALSE) {
+
+    offending_groups <- eco_taxa |>
+      dplyr::group_by(cruise_moc_net) |>
+      dplyr::summarize(unique_dates = dplyr::n_distinct(object_date)) |>
+      dplyr::filter(unique_dates != 1)
+
+    stop("encountered cruise_moc_net(s) with more than one date: ", offending_groups)
+
+  }
+
+    # eco_taxa |>
+    #   pointblank::col_vals_not_null(
+    #     columns = cruise_moc_net,
+    #     actions = pointblank::warn_on_fail(),
+    #     label   = "check that all records have a moc_net_value",
+    #     active  = TRUE
+    #   )
+
+  eco_taxa <- annotate_daytime_parallel(eco_taxa)
+
+  return(eco_taxa)
 
 }
 
