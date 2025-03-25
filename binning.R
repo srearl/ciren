@@ -1,8 +1,21 @@
 ## duck
 
-CREATE TABLE agg AS 
+CREATE TABLE gradients AS 
 SELECT * FROM read_csv(
-  'eco_taxa.csv',
+  '~/Desktop/gradients/ecotaxa_export_5421_20250307_2215.tsv',
+types={
+  'process_time': 'VARCHAR',
+  'acq_scan_time': 'VARCHAR',
+  'acq_lut_16b_median': 'VARCHAR',
+  'object_lat': 'VARCHAR',
+  'object_lon': 'VARCHAR'
+  },
+nullstr = ['nan', 'N/A']
+) ;
+
+CREATE TABLE eco_env_gradients AS 
+SELECT * FROM read_csv(
+  'eco_env.csv',
 types={
   'process_time': 'VARCHAR',
   'acq_scan_time': 'VARCHAR',
@@ -10,6 +23,7 @@ types={
   },
 nullstr = 'NA'
 ) ;
+
 
 ## -----
 
@@ -217,6 +231,7 @@ moc_env <- readr::read_csv("~/localRepos/ciren/Aggregates_MOCNESS_net_hydrograph
 ## gradients
 
 eco_taxa <- load_eco_taxa("~/Desktop/gradients/ecotaxa_export_5421_20250307_2215.tsv")
+eco_taxa <- load_eco_taxa("~/Desktop/gradients/ecotaxa_export_5421_20250307_2215_rm.tsv")
 
 moc_env <- readr::read_csv("~/localRepos/ciren/Amy_Gradients_MOCNESS_net_hydrography.csv") |>
   janitor::clean_names() |>
