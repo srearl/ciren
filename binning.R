@@ -37,12 +37,17 @@ annotate_daytime_parallel <- function(
   # sans join: 1676.436 sec elapsed
 
  grouped <- eco_taxa_df |>
-   dplyr::group_by(cruise_moc_net) |>
+   #  dplyr::group_by(cruise_moc_net) |>
+   dplyr::group_by(
+     cruise,
+     moc
+   ) |>
    dplyr::summarize(
      object_lat  = mean(object_lat, na.rm = TRUE),
      object_lon  = mean(object_lon, na.rm = TRUE),
      object_date = unique(object_date),
-     object_time = unique(object_time)
+     object_time = unique(object_time),
+     .groups     = "drop"
    )
   
   # ensure that each group has only one unique date and time
@@ -83,10 +88,11 @@ annotate_daytime_parallel <- function(
     dplyr::left_join(
       y = grouped |>
         dplyr::select(
-          cruise_moc_net,
+          cruise,
+          moc,
           is_day
         ),
-      by = "cruise_moc_net"
+      by = c("cruise", "moc")
     ) |>
     dplyr::ungroup() |>
     dplyr::mutate(is_day = as.logical(is_day))
@@ -135,7 +141,8 @@ load_eco_taxa <- function(file_path) {
       too_many = c("drop")
     ) |>
     dplyr::mutate(
-      net = as.factor(net),
+      # revisit converting net to factor
+      # net = as.factor(net),
       dplyr::across(
         .cols = dplyr::all_of(ensure_numeric),
         .fns = as.numeric
@@ -176,15 +183,34 @@ load_eco_taxa <- function(file_path) {
   # check for null cruise_moc_net and unique cruise_moc_net * object_date
   agent <- pointblank::create_agent(tbl = eco_taxa) |>
     pointblank::col_vals_not_null(columns = vars(cruise_moc_net)) |>
-    # pointblank::col_vals_not_null(columns = vars(object_date)) |>
     pointblank::col_vals_lte(
       columns = vars(unique_dates),
       value = 1,
       preconditions = function(x) {
         x |>
-          dplyr::group_by(cruise_moc_net) |>
-          dplyr::summarize(unique_dates = dplyr::n_distinct(object_date)) |>
-          dplyr::ungroup()
+          dplyr::group_by(
+            cruise,
+            moc
+          ) |>
+          dplyr::summarize(
+            unique_dates = dplyr::n_distinct(object_date),
+            .groups      = "drop"
+          )
+      }
+    ) |>
+    pointblank::col_vals_equal(
+      columns = vars(stdev),
+      value = 0,
+      preconditions = function(x) {
+        x |>
+          dplyr::group_by(
+            cruise,
+            moc
+          ) |>
+          dplyr::summarize(
+            stdev   = sd(object_lat, na.rm = TRUE),
+            .groups = "drop"
+          )
       }
     ) |>
     pointblank::interrogate()
@@ -194,24 +220,48 @@ load_eco_taxa <- function(file_path) {
 
     stop("encountered a NULL cruise_moc_net")
 
-  } else if (agent$validation_set$all_passed[2] == FALSE) {
+  } 
+  
+  if (agent$validation_set$all_passed[2] == FALSE) {
 
-    offending_groups <- eco_taxa |>
-      dplyr::group_by(cruise_moc_net) |>
-      dplyr::summarize(unique_dates = dplyr::n_distinct(object_date)) |>
+    cruise_moc_date <- eco_taxa |>
+      dplyr::group_by(
+        cruise,
+        moc
+      ) |>
+      dplyr::summarize(
+        unique_dates = dplyr::n_distinct(object_date),
+        .groups      = "drop"
+        ) |>
       dplyr::filter(unique_dates != 1)
 
-    stop("encountered cruise_moc_net(s) with more than one date: ", offending_groups)
+    stop("encountered a cruise-moc pair with more than one date: ", cruise_moc_date)
 
   }
 
-    # eco_taxa |>
-    #   pointblank::col_vals_not_null(
-    #     columns = cruise_moc_net,
-    #     actions = pointblank::warn_on_fail(),
-    #     label   = "check that all records have a moc_net_value",
-    #     active  = TRUE
-    #   )
+  if (agent$validation_set$all_passed[3] == FALSE) {
+
+    cruise_moc_lat <- eco_taxa |>
+      dplyr::group_by(
+        cruise,
+        moc
+      ) |>
+      dplyr::summarize(
+        stdev   = sd(object_lat, na.rm = TRUE),
+        .groups = "drop"
+      ) |>
+      dplyr::filter(stdev != 0)
+
+    warning(
+      "encountered a cruise-moc pair with inconsistent latitude(s): ",
+      paste(
+        cruise_moc_lat$cruise,
+        cruise_moc_lat$moc,
+        collapse = " "
+      )
+    )
+
+  }
 
   eco_taxa <- annotate_daytime_parallel(eco_taxa)
 
