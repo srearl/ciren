@@ -45,33 +45,34 @@
 #' print(result)
 #' }
 #'
-#' @export 
+#' @export
 #'
 annotate_daytime_parallel <- function(
   eco_taxa_df,
   workers = future::availableCores() - 1
-  ) {
-
+) {
   if (!all(c("cruise", "moc") %in% colnames(eco_taxa_df))) {
     stop("The dataframe must contain 'cruise' and 'moc' columns.")
   }
 
+  nrow_start <- nrow(eco_taxa_df)
+
   # with join: 38.696 sec elapsed
   # sans join: 1676.436 sec elapsed
 
- grouped <- eco_taxa_df |>
-   dplyr::group_by(
-     cruise,
-     moc
-   ) |>
-   dplyr::summarize(
-     object_lat  = mean(object_lat, na.rm = TRUE),
-     object_lon  = mean(object_lon, na.rm = TRUE),
-     object_date = unique(object_date),
-     object_time = unique(object_time),
-     .groups     = "drop"
-   )
-  
+  grouped <- eco_taxa_df |>
+    dplyr::group_by(
+      cruise,
+      moc
+    ) |>
+    dplyr::summarize(
+      object_lat = mean(object_lat, na.rm = TRUE),
+      object_lon = mean(object_lon, na.rm = TRUE),
+      object_date = unique(object_date),
+      object_time = unique(object_time),
+      .groups = "drop"
+    )
+
   # ensure that each group has only one unique date and time
   if (
     any(sapply(grouped$object_date, length) > 1) ||
@@ -79,17 +80,17 @@ annotate_daytime_parallel <- function(
   ) {
     stop("Each group must have only one unique date and time.")
   }
-  
+
   # set up parallel backend
   future::plan(future::multisession, workers = workers)
-  
+
   # apply `is_daytime` in parallel for each row
   grouped$is_day <- furrr::future_pmap_lgl(
     list(
       date = as.POSIXct(
-        x      = paste(grouped$object_date, grouped$object_time),
+        x = paste(grouped$object_date, grouped$object_time),
         format = "%Y-%m-%d %H:%M:%S",
-        tz     = "UTC"
+        tz = "UTC"
       ),
       lat = grouped$object_lat,
       lon = grouped$object_lon
@@ -118,7 +119,24 @@ annotate_daytime_parallel <- function(
     ) |>
     dplyr::ungroup() |>
     dplyr::mutate(is_day = as.logical(is_day))
-  
+
+  agent <- pointblank::create_agent(tbl = eco_taxa_df) |>
+    pointblank::col_vals_equal(
+      columns = vars(nrow),
+      value   = nrow_start,
+      preconditions = function(x) {
+        x |>
+          dplyr::summarize(nrow = n())
+      }
+    ) |>
+    pointblank::interrogate()
+
+  if (!agent$validation_set$all_passed) {
+    stop(
+      "The number of rows in the input and output do not match."
+    )
+  }
+
   return(eco_taxa_df)
 
 }
