@@ -42,7 +42,7 @@ moc_env <- readr::read_csv("~/localRepos/ciren/Aggregates_MOCNESS_net_hydrograph
 ## gradients
 
 eco_taxa <- load_eco_taxa("~/Desktop/gradients/ecotaxa_export_5421_20250307_2215.tsv")
-eco_taxa <- load_eco_taxa("~/Desktop/gradients/ecotaxa_export_5421_20250307_2215_rm.tsv")
+eco_taxa <- load_eco_taxa("~/Desktop/gradients/ecotaxa_export_5421_20250307_2215_rm.tsv") # repaired
 
 moc_env <- readr::read_csv("~/localRepos/ciren/Amy_Gradients_MOCNESS_net_hydrography.csv") |>
   janitor::clean_names() |>
@@ -113,9 +113,11 @@ eco_env <- eco_env |>
   )
 
 summary_columns <- c(
+  "cruise",
   "cruise_moc_net",
   "station",
   "d_n",
+  "net",
   "bin",
   "fraction"
 )

@@ -25,7 +25,7 @@
 #' @return A data frame with an additional column `is_day` indicating whether
 #'   the observation occurred during daytime.
 #'
-#' @importFrom dplyr group_by summarize left_join select ungroup mutate
+#' @importFrom dplyr group_by summarize left_join select ungroup mutate n
 #' @importFrom future availableCores plan multisession
 #' @importFrom furrr future_pmap_lgl
 #' @importFrom SunCalcMeeus is_daytime
@@ -51,6 +51,7 @@ annotate_daytime_parallel <- function(
   eco_taxa_df,
   workers = future::availableCores() - 1
 ) {
+
   if (!all(c("cruise", "moc") %in% colnames(eco_taxa_df))) {
     stop("The dataframe must contain 'cruise' and 'moc' columns.")
   }
@@ -120,13 +121,14 @@ annotate_daytime_parallel <- function(
     dplyr::ungroup() |>
     dplyr::mutate(is_day = as.logical(is_day))
 
+  # ensure that the number of rows in the input and output match
   agent <- pointblank::create_agent(tbl = eco_taxa_df) |>
     pointblank::col_vals_equal(
       columns = vars(nrow),
       value   = nrow_start,
       preconditions = function(x) {
         x |>
-          dplyr::summarize(nrow = n())
+          dplyr::summarize(nrow = dplyr::n())
       }
     ) |>
     pointblank::interrogate()

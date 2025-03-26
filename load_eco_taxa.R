@@ -167,7 +167,11 @@ load_eco_taxa <- function(file_path) {
 
     stop(
       "encountered a cruise-moc pair with more than one date: ",
-      cruise_moc_date
+      paste(
+        cruise_moc_date$cruise,
+        cruise_moc_date$moc,
+        collapse = " "
+      )
     )
 
   }
