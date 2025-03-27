@@ -1,4 +1,4 @@
-## duck
+## DUCK -----
 
 CREATE TABLE gradients AS 
 SELECT * FROM read_csv(
@@ -23,6 +23,11 @@ types={
   },
 nullstr = 'NA'
 ) ;
+
+
+## NOTES -----
+
+UVP is a drone so no nets with the depth being semi-continuous
 
 
 ## -----
