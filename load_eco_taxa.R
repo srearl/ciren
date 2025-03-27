@@ -165,6 +165,7 @@ load_eco_taxa <- function(file_path) {
         ) |>
       dplyr::filter(unique_dates != 1)
 
+    # this is a stop because a fail will bork annotate_daytime_parallel()
     stop(
       "encountered a cruise-moc pair with more than one date: ",
       paste(
