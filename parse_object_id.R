@@ -22,9 +22,10 @@ matches_flowcam_pattern <- base::regmatches(
 )
 
 # test if all rows match the pattern
-# flowcam_pattern_true <- all(sapply(matches_flowcam_pattern, function(x) length(x) > 1))
+flowcam_pattern_true <- all(sapply(matches_flowcam_pattern, function(x) length(x) > 1))
 
-flowcam_pattern_true <- TRUE
+# message(flowcam_pattern_true)
+# flowcam_pattern_true <- TRUE
 
 if (flowcam_pattern_true == TRUE) {
 
@@ -377,8 +378,8 @@ extract_flowcam_columns <- function(
 ) {
   
   # temporary
-  ecotaxa_file$cruise         <- NA
-  ecotaxa_file$photo_id       <- NA
+  # ecotaxa_file$cruise         <- NA
+  # ecotaxa_file$photo_id       <- NA
   
   test_cols <- c(
     "cruise",
@@ -390,10 +391,11 @@ extract_flowcam_columns <- function(
     "duplicates_removed"
   )
 
-  # flowcam_pattern <- base::regmatches(
-  #   ecotaxa_file$object_id,
-  #   base::regexec(pattern, ecotaxa_file$object_id)
-  # )
+  # extract components for pattern1
+  matches_flowcam <- base::regmatches(
+    ecotaxa_file$object_id,
+    base::regexec(pattern, ecotaxa_file$object_id)
+  )
 
   ecotaxa_file$depth              <- NA
   ecotaxa_file$niskin             <- NA
@@ -402,38 +404,38 @@ extract_flowcam_columns <- function(
   ecotaxa_file$duplicates_removed <- NA
 
   ecotaxa_file$cruise <- base::ifelse(
-    test = base::sapply(pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(pattern, function(x) x[2]),
+    test = base::sapply(matches_flowcam, function(x) base::length(x) > 1),
+    yes  = base::sapply(matches_flowcam, function(x) x[2]),
     no   = ecotaxa_file$cruise
   )
   ecotaxa_file$depth <- base::ifelse(
-    test = base::sapply(pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(pattern, function(x) x[3]),
+    test = base::sapply(matches_flowcam, function(x) base::length(x) > 1),
+    yes  = base::sapply(matches_flowcam, function(x) x[3]),
     no   = ecotaxa_file$depth
   )
   ecotaxa_file$niskin <- base::ifelse(
-    test = base::sapply(pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(pattern, function(x) x[4]),
+    test = base::sapply(matches_flowcam, function(x) base::length(x) > 1),
+    yes  = base::sapply(matches_flowcam, function(x) x[4]),
     no   = ecotaxa_file$niskin
   )
   ecotaxa_file$mode <- base::ifelse(
-    test = base::sapply(pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(pattern, function(x) x[5]),
+    test = base::sapply(matches_flowcam, function(x) base::length(x) > 1),
+    yes  = base::sapply(matches_flowcam, function(x) x[5]),
     no   = ecotaxa_file$mode
   )
   ecotaxa_file$magnification <- base::ifelse(
-    test = base::sapply(pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(pattern, function(x) x[6]),
+    test = base::sapply(matches_flowcam, function(x) base::length(x) > 1),
+    yes  = base::sapply(matches_flowcam, function(x) x[6]),
     no   = ecotaxa_file$magnification
   )
   ecotaxa_file$duplicates_removed <- base::ifelse(
-    test = base::sapply(pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(pattern, function(x) x[7]),
+    test = base::sapply(matches_flowcam, function(x) base::length(x) > 1),
+    yes  = base::sapply(matches_flowcam, function(x) x[7]),
     no   = ecotaxa_file$duplicates_removed
   )
   ecotaxa_file$photo_id <- base::ifelse(
-    test = base::sapply(pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(pattern, function(x) x[8]),
+    test = base::sapply(matches_flowcam, function(x) base::length(x) > 1),
+    yes  = base::sapply(matches_flowcam, function(x) x[8]),
     no   = ecotaxa_file$photo_id
   )
 
@@ -578,9 +580,24 @@ base::regmatches(
 pattern8 <- "^([0-9]{5})_([0-9]{4})_([0-9]{2})_([0-9]{1})_([0-9]+[a-zA-Z]+)_([a-zA-Z])_([0-9]+)$"
 
 "10414_0000_01_1_20x_d_00080"
-"10414_0000_01_1_20x_d_00080"
+"10414_0000_01_1_20x_d_00090"
 
 base::regmatches(
   "10414_0000_01_1_20x_d_00080",
-  base::regexec(pattern8, "10414_0000_01_1_20x_d_00080")
+  base::regexec(flowcam_pattern, "10414_0000_01_1_20x_d_00080")
+)
+
+base::regmatches(
+  c(
+    "10414_0000_01_1_20x_d_00080", 
+    "10414_0000_01_1_20x_d_00090",
+    "not"
+    ),
+  base::regexec(
+    flowcam_pattern, c(
+      "10414_0000_01_1_20x_d_00080",
+      "10414_0000_01_1_20x_d_00090",
+    "not"
+      )
+)
 )
