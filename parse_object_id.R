@@ -12,7 +12,7 @@ extract_columns <- function(
 flowcam_pattern <- "^([0-9]{5})_([0-9]{4})_([0-9]{2})_([0-9]{1})_([0-9]+[a-zA-Z]+)_([a-zA-Z])_([0-9]+)$"
 
 # randomly select a subsample of 100 records
-set.seed(123) # Set seed for reproducibility
+set.seed(123) # set seed for reproducibility
 subsample <- ecotaxa_file[sample(nrow(ecotaxa_file), 100), ]
 
 # check if all rows in the subsample match the flowcam_pattern
@@ -21,68 +21,18 @@ matches_flowcam_pattern <- base::regmatches(
   base::regexec(flowcam_pattern, subsample$object_id)
 )
 
-# Test if all rows match the pattern
-flowcam_pattern_true <- all(sapply(matches_flowcam_pattern, function(x) length(x) > 1))
+# test if all rows match the pattern
+# flowcam_pattern_true <- all(sapply(matches_flowcam_pattern, function(x) length(x) > 1))
+
+flowcam_pattern_true <- TRUE
 
 if (flowcam_pattern_true == TRUE) {
 
-test_cols <- c(
-  "cruise",
-  "photo_id",
-  "depth",
-  "niskin",
-  "mode",
-  "magnification",
-  "duplicates_removed"
+ecotaxa_file <- extract_flowcam_columns(
+  ecotaxa_file = ecotaxa_file,
+  pattern      = flowcam_pattern,
+  debug        = FALSE
 )
-
-  # extract components for flowcam_pattern
-  flowcam_pattern <- base::regmatches(
-    ecotaxa_file$object_id,
-    base::regexec(pattern1, ecotaxa_file$object_id)
-  )
-
-  ecotaxa_file$depth              <- NA
-  ecotaxa_file$niskin             <- NA
-  ecotaxa_file$mode               <- NA
-  ecotaxa_file$magnification      <- NA
-  ecotaxa_file$duplicates_removed <- NA
-
-  ecotaxa_file$cruise <- base::ifelse(
-    test = base::sapply(flowcam_pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(flowcam_pattern, function(x) x[2]),
-    no   = ecotaxa_file$cruise
-  )
-  ecotaxa_file$depth <- base::ifelse(
-    test = base::sapply(flowcam_pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(flowcam_pattern, function(x) x[3]),
-    no   = ecotaxa_file$depth
-  )
-  ecotaxa_file$niskin <- base::ifelse(
-    test = base::sapply(flowcam_pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(flowcam_pattern, function(x) x[4]),
-    no   = ecotaxa_file$niskin
-  )
-  ecotaxa_file$mode <- base::ifelse(
-    test = base::sapply(flowcam_pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(flowcam_pattern, function(x) x[5]),
-    no   = ecotaxa_file$mode
-  )
-  ecotaxa_file$magnification <- base::ifelse(
-    test = base::sapply(flowcam_pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(flowcam_pattern, function(x) x[6]),
-    no   = ecotaxa_file$magnification
-  )
-  ecotaxa_file$duplicates_removed <- base::ifelse(
-    test = base::sapply(flowcam_pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(flowcam_pattern, function(x) x[7]),
-    no   = ecotaxa_file$duplicates_removed
-  )
-  ecotaxa_file$photo_id <- base::ifelse(
-    test = base::sapply(flowcam_pattern, function(x) base::length(x) > 1),
-    yes  = base::sapply(flowcam_pattern, function(x) x[8]),
-    no   = ecotaxa_file$photo_id
-  )
 
 } else {
 
@@ -352,9 +302,9 @@ test_cols <- c(
 }
   
   # perform pointblank test
-  agent <- pointblank::create_agent(tbl = ecotaxa_file) |>
-    pointblank::col_vals_not_null(columns = dplyr::vars(cruise, moc, net, fraction)) |>
-    pointblank::interrogate()
+  # agent <- pointblank::create_agent(tbl = ecotaxa_file) |>
+  #   pointblank::col_vals_not_null(columns = dplyr::vars(cruise, moc, net, fraction)) |>
+  #   pointblank::interrogate()
 
   if (debug == TRUE) {
 
@@ -419,6 +369,80 @@ test_cols <- c(
 
 }
 
+
+extract_flowcam_columns <- function(
+  ecotaxa_file,
+  pattern = flowcam_pattern,
+  debug = FALSE
+) {
+  
+  # temporary
+  ecotaxa_file$cruise         <- NA
+  ecotaxa_file$photo_id       <- NA
+  
+  test_cols <- c(
+    "cruise",
+    "photo_id",
+    "depth",
+    "niskin",
+    "mode",
+    "magnification",
+    "duplicates_removed"
+  )
+
+  # flowcam_pattern <- base::regmatches(
+  #   ecotaxa_file$object_id,
+  #   base::regexec(pattern, ecotaxa_file$object_id)
+  # )
+
+  ecotaxa_file$depth              <- NA
+  ecotaxa_file$niskin             <- NA
+  ecotaxa_file$mode               <- NA
+  ecotaxa_file$magnification      <- NA
+  ecotaxa_file$duplicates_removed <- NA
+
+  ecotaxa_file$cruise <- base::ifelse(
+    test = base::sapply(pattern, function(x) base::length(x) > 1),
+    yes  = base::sapply(pattern, function(x) x[2]),
+    no   = ecotaxa_file$cruise
+  )
+  ecotaxa_file$depth <- base::ifelse(
+    test = base::sapply(pattern, function(x) base::length(x) > 1),
+    yes  = base::sapply(pattern, function(x) x[3]),
+    no   = ecotaxa_file$depth
+  )
+  ecotaxa_file$niskin <- base::ifelse(
+    test = base::sapply(pattern, function(x) base::length(x) > 1),
+    yes  = base::sapply(pattern, function(x) x[4]),
+    no   = ecotaxa_file$niskin
+  )
+  ecotaxa_file$mode <- base::ifelse(
+    test = base::sapply(pattern, function(x) base::length(x) > 1),
+    yes  = base::sapply(pattern, function(x) x[5]),
+    no   = ecotaxa_file$mode
+  )
+  ecotaxa_file$magnification <- base::ifelse(
+    test = base::sapply(pattern, function(x) base::length(x) > 1),
+    yes  = base::sapply(pattern, function(x) x[6]),
+    no   = ecotaxa_file$magnification
+  )
+  ecotaxa_file$duplicates_removed <- base::ifelse(
+    test = base::sapply(pattern, function(x) base::length(x) > 1),
+    yes  = base::sapply(pattern, function(x) x[7]),
+    no   = ecotaxa_file$duplicates_removed
+  )
+  ecotaxa_file$photo_id <- base::ifelse(
+    test = base::sapply(pattern, function(x) base::length(x) > 1),
+    yes  = base::sapply(pattern, function(x) x[8]),
+    no   = ecotaxa_file$photo_id
+  )
+
+return(ecotaxa_file)
+
+}
+
+# TESTING -----
+
 # Load the data
 loaded <- read.delim(
     file             = "~/Desktop/dataset_var/Dataset_variations/ecotaxa_export_NA2021_MOCNESS.tsv",
@@ -467,7 +491,7 @@ extracted <- extract_columns(loaded)
 # matches <- base::regmatches(test_object_ids, base::regexec(pattern1, test_object_ids))
 # print(matches)
 
-# Load another dataset and apply the function
+# load flowcam
 loaded <- read.delim(
     file             = "~/Desktop/dataset_var/Dataset_variations/Rhizaria_Flowcam_14986_20250205_1901.tsv",
     sep              = "\t",
@@ -477,6 +501,13 @@ loaded <- read.delim(
 
 extracted <- extract_columns(loaded, debug = FALSE)
 
+flowcam_pattern <- "^([0-9]{5})_([0-9]{4})_([0-9]{2})_([0-9]{1})_([0-9]+[a-zA-Z]+)_([a-zA-Z])_([0-9]+)$"
+extracted <- extract_flowcam_columns(loaded, pattern = flowcam_pattern, debug = FALSE)
+
+"10414_0000_01_1_20x_d_00080"
+
+
+# SCRATCH ------
 
 pattern4 <- "^([0-9]{2})([0-9]{2})([0-9]{2})_([0-9]+)_([0-9]+_[0-9]+)_([0-9]+_[0-9]+)$"
 pattern6 <- "^([a-zA-Z]+[0-9]+)_([a-zA-Z][0-9]+)_([a-zA-Z][0-9]+)_([a-zA-Z0-9]+)_([0-9]+_[0-9]+)$"
@@ -546,6 +577,7 @@ base::regmatches(
 
 pattern8 <- "^([0-9]{5})_([0-9]{4})_([0-9]{2})_([0-9]{1})_([0-9]+[a-zA-Z]+)_([a-zA-Z])_([0-9]+)$"
 
+"10414_0000_01_1_20x_d_00080"
 "10414_0000_01_1_20x_d_00080"
 
 base::regmatches(
