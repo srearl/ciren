@@ -5,9 +5,11 @@ extract_columns <- function(
   debug = TRUE
   ) {
   
-  # initialize new columns with NA
+  # so far, moc and flowcam files all have cruise and photo_id
   ecotaxa_file$cruise         <- NA
   ecotaxa_file$photo_id       <- NA
+
+# check if flowcam
 
 flowcam_pattern <- "^([0-9]{5})_([0-9]{4})_([0-9]{2})_([0-9]{1})_([0-9]+[a-zA-Z]+)_([a-zA-Z])_([0-9]+)$"
 
@@ -21,11 +23,7 @@ matches_flowcam_pattern <- base::regmatches(
   base::regexec(flowcam_pattern, subsample$object_id)
 )
 
-# test if all rows match the pattern
 flowcam_pattern_true <- all(sapply(matches_flowcam_pattern, function(x) length(x) > 1))
-
-# message(flowcam_pattern_true)
-# flowcam_pattern_true <- TRUE
 
 if (flowcam_pattern_true == TRUE) {
 
@@ -37,15 +35,16 @@ ecotaxa_file <- extract_flowcam_columns(
 
 } else {
 
-test_cols <- c(
-  "cruise",
-  "photo_id",
-  "moc",
-  "net",
-  "fraction",
-  "lab_split",
-  "split_fraction"
-)
+# among moc, lab_split and split_fraction are not consistent across files
+# test_cols <- c(
+#   "cruise",
+#   "photo_id",
+#   "moc",
+#   "net",
+#   "fraction",
+#   "lab_split",
+#   "split_fraction"
+# )
 
   ecotaxa_file$moc            <- NA
   ecotaxa_file$net            <- NA
@@ -300,12 +299,96 @@ test_cols <- c(
     no   = ecotaxa_file$photo_id
   )
   
-}
+  # add the pattern invoked for testing and debugging (optional)
   
-  # perform pointblank test
-  # agent <- pointblank::create_agent(tbl = ecotaxa_file) |>
-  #   pointblank::col_vals_not_null(columns = dplyr::vars(cruise, moc, net, fraction)) |>
-  #   pointblank::interrogate()
+    ecotaxa_file$pattern <- NA
+
+    ecotaxa_file$pattern <- base::ifelse(
+      test = base::sapply(matches1, function(x) base::length(x) > 1),
+      yes  = "pattern1",
+      no   = ecotaxa_file$pattern
+    )
+    ecotaxa_file$pattern <- base::ifelse(
+      test = base::sapply(matches2, function(x) base::length(x) > 1),
+      yes  = "pattern2",
+      no   = ecotaxa_file$pattern
+    )
+    ecotaxa_file$pattern <- base::ifelse(
+      test = base::sapply(matches3, function(x) base::length(x) > 1),
+      yes  = "pattern3",
+      no   = ecotaxa_file$pattern
+    )
+    ecotaxa_file$pattern <- base::ifelse(
+      test = base::sapply(matches4, function(x) base::length(x) > 1),
+      yes  = "pattern4",
+      no   = ecotaxa_file$pattern
+    )
+    ecotaxa_file$pattern <- base::ifelse(
+      test = base::sapply(matches5, function(x) base::length(x) > 1),
+      yes  = "pattern5",
+      no   = ecotaxa_file$pattern
+    )
+    ecotaxa_file$pattern <- base::ifelse(
+      test = base::sapply(matches6, function(x) base::length(x) > 1),
+      yes  = "pattern6",
+      no   = ecotaxa_file$pattern
+    )
+    ecotaxa_file$pattern <- base::ifelse(
+      test = base::sapply(matches7, function(x) base::length(x) > 1),
+      yes  = "pattern7",
+      no   = ecotaxa_file$pattern
+    )
+  
+# test for cols that are consistent across all MOC files (i.e., not
+# lab_split,split_fraction) are not consistent across files
+
+  agent <- pointblank::create_agent(tbl = ecotaxa_file) |>
+    pointblank::col_vals_not_null(
+      columns = dplyr::vars(cruise, moc, net, fraction),
+      label = "cruise_moc_net_fraction"
+      # columns = dplyr::vars(moc_columns_all_patterns)
+      # columns = moc_columns_all_patterns
+      ) |>
+    pointblank::col_vals_not_null(
+      columns = c(
+        # dplyr::vars(moc_columns_all_patterns),
+        # moc_columns_all_patterns,
+        "lab_split",
+        "split_fraction"
+        ),
+      preconditions = function(x) {
+        x |>
+          dplyr::filter(pattern %in% c("pattern1", "pattern4"))
+      }
+      ) |>
+    pointblank::col_vals_not_null(
+      columns = c(
+        # dplyr::vars(moc_columns_all_patterns),
+        # moc_columns_all_patterns,
+        "split_fraction"
+        ),
+      preconditions = function(x) {
+        x |>
+          dplyr::filter(pattern %in% c("pattern1"))
+      }
+      ) |>
+    pointblank::interrogate()
+
+global_agent <<- agent
+
+  if (agent$validation_set$all_passed[1] == FALSE) {
+
+    warning("null values for cruise")
+
+  } 
+
+  if (agent$validation_set$all_passed[2] == FALSE) {
+
+    warning("null values for cruise")
+
+  } 
+
+}
 
   if (debug == TRUE) {
 
@@ -349,7 +432,7 @@ test_cols <- c(
       no   = ecotaxa_file$pattern
     )
 
-    cols <- c(
+    moc_cols <- c(
       "object_id",
       "cruise",
       "moc",
@@ -362,7 +445,7 @@ test_cols <- c(
       )
       
     ecotaxa_file <- ecotaxa_file |>
-      dplyr::select(dplyr::any_of(cols))
+      dplyr::select(dplyr::any_of(moc_cols))
     
   }
   
