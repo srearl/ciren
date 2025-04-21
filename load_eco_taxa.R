@@ -26,16 +26,30 @@
 load_eco_taxa <- function(file_path) {
 
   if (tools::file_ext(file_path) != "tsv") {
-    stop("provided file must be of type tsv")
+    stop("The provided file must be of type 'tsv'.")
   }
 
-  eco_taxa <- read.delim(
-    file             = file_path,
-    sep              = "\t",
-    header           = TRUE,
-    stringsAsFactors = FALSE
-    )
-  # eco_taxa <- readr::read_delim(file_path)
+  eco_taxa <- base::tryCatch(
+    {
+      read.delim(
+        file             = file_path,
+        sep              = "\t",
+        header           = TRUE,
+        stringsAsFactors = FALSE
+      )
+    },
+    error = function(e) {
+      stop(paste("Error reading the file:", e$message))
+    },
+    warning = function(w) {
+      warning(paste("Warning while reading the file:", w$message))
+      return(NULL)
+    }
+  )
+
+  if (!"object_id" %in% names(eco_taxa)) {
+    stop("The input data frame must contain an 'object_id' column.")
+  }
 
   ensure_numeric <- c(
     "object_area",
@@ -48,7 +62,13 @@ load_eco_taxa <- function(file_path) {
   )
 
   eco_taxa <- eco_taxa |>
-    janitor::clean_names() |>
+    janitor::clean_names()
+
+  if (!"object_id" %in% names(eco_taxa)) {
+    stop("The input data frame must contain an 'object_id' column.")
+  }
+
+  eco_taxa <- eco_taxa |>
     tidyr::separate_wider_delim(
       col = object_id,
       delim = "_",
