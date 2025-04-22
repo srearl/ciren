@@ -39,17 +39,13 @@ load_eco_taxa <- function(file_path) {
       )
     },
     error = function(e) {
-      stop(paste("Error reading the file:", e$message))
+      stop(paste("Error reading the file: ", e$message))
     },
     warning = function(w) {
-      warning(paste("Warning while reading the file:", w$message))
+      warning(paste("Warning while reading the file: ", w$message))
       return(NULL)
     }
   )
-
-  if (!"object_id" %in% names(eco_taxa)) {
-    stop("The input data frame must contain an 'object_id' column.")
-  }
 
   ensure_numeric <- c(
     "object_area",
