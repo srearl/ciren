@@ -1,9 +1,26 @@
-extract_columns <- function(
+#' @title Parse the cruise ID column of an EcoTaxa file
+#'
+#' @description \code{parse_cruise_id} Parses the `cruise_id` column of an
+#' EcoTaxa file of type MOC, UVP, or FlowCam.
+#'
+#' @param ecotaxa_file (character) The unquoted name of a tibble or data frame
+#' in the R environment that reflecte the data in the EcoTaxa file.
+#' @param debug A logical value indicating whether to enable debug mode.
+#' Defaults to `FALSE`.
+#'
+#' @return A list with two elements:
+#'   \item{extracted_file}{A data frame with extracted columns.}
+#'   \item{pattern}{A string indicating the matched pattern type ("flowcam",
+#'   "moc", "uvp", or "none").}
+#'
+#' @export
+#'
+parse_cruise_id <- function(
   ecotaxa_file,
   debug = FALSE
 ) {
 
-  # randomly select a subsample of 1000 records
+  # random sample of 1000 records
   set.seed(123)
   subsample <- ecotaxa_file[sample(nrow(ecotaxa_file), 1000), ]
 
@@ -50,8 +67,8 @@ extract_columns <- function(
 
     return(
       list(
-        extracted_file = extracted_file,
-        pattern        = "flowcam"
+        parsed_file = extracted_file,
+        pattern     = "flowcam"
       )
     )
 
@@ -60,12 +77,12 @@ extract_columns <- function(
   # MOC
 
   pattern1 <- "^([0-9]{2})([0-9]{2})([0-9]{2})_([0-9]{4})_([0-9]+_[0-9]+)_([a-zA-Z0-9]+_[a-zA-Z0-9]+)_([0-9]+_[0-9]+)$"
+  # pattern2 <- "^([a-zA-Z0-9]+)_([a-zA-Z0-9]+)_([a-zA-Z0-9]+)_([0-9]+)_([0-9]+_[0-9]+)$"
   pattern3 <- "^([0-9]{2})([0-9]{2})([0-9]{2})_([0-9]+)_([0-9]+)$"
   pattern4 <- "^([0-9]{2})([0-9]{2})([0-9]{2})_([0-9]{4})_([0-9]{1}_[0-9]+)_([0-9]{1}_[0-9]+)$"
   pattern5 <- "^([0-9]{2})([0-9]{2})([0-9]{2})_([0-9]{4})_([0-9]+_[0-9]+)$"
   pattern6 <- "^([a-zA-Z]+[0-9]+)_([a-zA-Z][0-9]+)_([a-zA-Z][0-9]+)_([a-zA-Z0-9]+)_([0-9]+_[0-9]+)$"
   pattern7 <- "^([a-zA-Z]+[0-9]+)_([a-zA-Z][0-9]+)_([a-zA-Z][0-9]+)_([a-zA-Z][0-9]+)_[a-zA-Z]_([0-9]+_[0-9]+)$"
-  # pattern2 <- "^([a-zA-Z0-9]+)_([a-zA-Z0-9]+)_([a-zA-Z0-9]+)_([0-9]+)_([0-9]+_[0-9]+)$"
 
   matches1 <- base::regmatches(
     ecotaxa_file$object_id,
@@ -121,8 +138,8 @@ extract_columns <- function(
 
     return(
       list(
-        extracted_file = extracted_file,
-        pattern        = "moc"
+        parsed_file = extracted_file,
+        pattern     = "moc"
       )
     )
 
@@ -157,8 +174,8 @@ extract_columns <- function(
 
     return(
       list(
-        extracted_file = extracted_file,
-        pattern        = "uvp"
+        parsed_file = extracted_file,
+        pattern     = "uvp"
       )
     )
 
@@ -175,6 +192,26 @@ extract_columns <- function(
 
 }
 
+#' @title Parse the cruise ID column of an EcoTaxa file of type MOC
+#'
+#' @description Parses the `cruise_id` column of an EcoTaxa file of type MOC.
+#'
+#' @param ecotaxa_file (character) The unquoted name of a tibble or data frame
+#' in the R environment that reflecte the data in the EcoTaxa file.
+#' @param pattern (list) A list of MOC patterns to match.
+#' @param debug (logical) A logical value indicating whether to enable debug
+#' mode. Defaults to `FALSE`.
+#'
+#' @note A helper function to \code{parse_cruise_id}
+#'
+#' @importFrom dplyr select any_of filter vars
+#' @importFrom purrr map2 reduce walk
+#' @importFrom pointblank create_agent col_vals_not_null interrogate
+#' @importFrom glue glue
+#'
+#' @return A data frame or tibble of the input EcoTaxa data with additional
+#' columns reflecting the parsed values of `column_id`.
+#'
 extract_moc_columns <- function(
   ecotaxa_file,
   pattern = moc_patterns,
@@ -517,7 +554,27 @@ extract_moc_columns <- function(
 
 }
 
-
+#' @title Parse the cruise ID column of an EcoTaxa file of type FlowCam.
+#'
+#' @description Parses the `cruise_id` column of an EcoTaxa file of
+#' type FlowCam. 
+#'
+#' @param ecotaxa_file (character) The unquoted name of a tibble or data frame
+#' in the R environment that reflecte the data in the EcoTaxa file.
+#' @param pattern (list) A list of FlowCam patterns to match.
+#' @param debug (logical) A logical value indicating whether to enable debug
+#' mode. Defaults to `FALSE`.
+#'
+#' @note A helper function to \code{parse_cruise_id}
+#'
+#' @importFrom dplyr select any_of filter vars
+#' @importFrom purrr map2 reduce walk
+#' @importFrom pointblank create_agent col_vals_not_null interrogate
+#' @importFrom glue glue
+#'
+#' @return A data frame or tibble of the input EcoTaxa data with additional
+#' columns reflecting the parsed values of `column_id`.
+#'
 extract_flowcam_columns <- function(
   ecotaxa_file,
   pattern = flowcam_patterns,
@@ -723,6 +780,27 @@ extract_flowcam_columns <- function(
 
 }
 
+#' @title Parse the cruise ID column of an EcoTaxa file of type UVP
+#'
+#' @description Parses the `cruise_id` column of an EcoTaxa file of
+#' type UVP.
+#'
+#' @param ecotaxa_file (character) The unquoted name of a tibble or data frame
+#' in the R environment that reflecte the data in the EcoTaxa file.
+#' @param pattern (list) A list of UVP patterns to match.
+#' @param debug (logical) A logical value indicating whether to enable debug
+#' mode. Defaults to `FALSE`.
+#'
+#' @note A helper function to \code{parse_cruise_id}
+#'
+#' @importFrom dplyr select any_of filter vars
+#' @importFrom purrr map2 reduce walk
+#' @importFrom pointblank create_agent col_vals_not_null interrogate
+#' @importFrom glue glue
+#'
+#' @return A data frame or tibble of the input EcoTaxa data with additional
+#' columns reflecting the parsed values of `column_id`.
+#'
 extract_uvp_columns <- function(
   ecotaxa_file,
   pattern = uvp_patterns,

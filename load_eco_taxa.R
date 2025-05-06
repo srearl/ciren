@@ -51,13 +51,13 @@ load_eco_taxa <- function(
     }
   )
 
-  extracted <- extract_columns(
+  parsed <- parse_cruise_id(
     ecotaxa_file = eco_taxa,
     debug        = debug
   )
 
-  eco_taxa <- extracted[["extracted_file"]]
-  pattern  <- extracted[["pattern"]]
+  eco_taxa <- parsed[["parsed_file"]]
+  pattern  <- parsed[["pattern"]]
 
   if (pattern == "moc") {
     ensure_numeric <- c(
