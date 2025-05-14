@@ -47,54 +47,58 @@
 #'
 #' @export
 #'
+
+eco_taxa_df <- this_file
+
 annotate_daytime_parallel <- function(
   eco_taxa_df,
   workers = future::availableCores() - 1
 ) {
+  required_cols <- c(
+    "object_lat",
+    "object_lon",
+    "object_date",
+    "object_time"
+  )
 
-  if (!all(c("cruise", "moc") %in% colnames(eco_taxa_df))) {
-    stop("The dataframe must contain 'cruise' and 'moc' columns.")
+  if (!all(required_cols %in% colnames(eco_taxa_df))) {
+    stop(
+      paste(
+        "The dataframe must contain the columns: ",
+        paste(required_cols, collapse = ", ")
+      )
+    )
   }
 
   nrow_start <- nrow(eco_taxa_df)
 
-  # with join: 38.696 sec elapsed
-  # sans join: 1676.436 sec elapsed
-
-  grouped <- eco_taxa_df |>
-    dplyr::group_by(
-      cruise,
-      moc
-    ) |>
-    dplyr::summarize(
-      object_lat = mean(object_lat, na.rm = TRUE),
-      object_lon = mean(object_lon, na.rm = TRUE),
-      object_date = unique(object_date),
-      object_time = unique(object_time),
-      .groups = "drop"
+  distinct_time_pos <- eco_taxa_df |>
+    dplyr::distinct(
+      object_lat,
+      object_lon,
+      object_date,
+      object_time
     )
 
-  # ensure that each group has only one unique date and time
-  if (
-    any(sapply(grouped$object_date, length) > 1) ||
-      any(sapply(grouped$object_time, length) > 1)
-  ) {
-    stop("Each group must have only one unique date and time.")
-  }
+  # ensure the plan is reset when the function exits
+  old_plan <- future::plan()
+  on.exit(future::plan(old_plan), add = TRUE)
 
   # set up parallel backend
   future::plan(future::multisession, workers = workers)
 
-  # apply `is_daytime` in parallel for each row
-  grouped$is_day <- furrr::future_pmap_lgl(
+  distinct_time_pos$is_day <- furrr::future_pmap_lgl(
     list(
       date = as.POSIXct(
-        x = paste(grouped$object_date, grouped$object_time),
+        x = paste(
+          distinct_time_pos$object_date,
+          distinct_time_pos$object_time
+        ),
         format = "%Y-%m-%d %H:%M:%S",
         tz = "UTC"
       ),
-      lat = grouped$object_lat,
-      lon = grouped$object_lon
+      lat = distinct_time_pos$object_lat,
+      lon = distinct_time_pos$object_lon
     ),
     function(date, lat, lon) {
       SunCalcMeeus::is_daytime(
@@ -110,22 +114,21 @@ annotate_daytime_parallel <- function(
 
   eco_taxa_df <- eco_taxa_df |>
     dplyr::left_join(
-      y = grouped |>
-        dplyr::select(
-          cruise,
-          moc,
-          is_day
-        ),
-      by = c("cruise", "moc")
+      y = distinct_time_pos,
+      by = c(
+        "object_lat",
+        "object_lon",
+        "object_date",
+        "object_time"
+      )
     ) |>
-    dplyr::ungroup() |>
     dplyr::mutate(is_day = as.logical(is_day))
 
   # ensure that the number of rows in the input and output match
   agent <- pointblank::create_agent(tbl = eco_taxa_df) |>
     pointblank::col_vals_equal(
       columns = vars(nrow),
-      value   = nrow_start,
+      value = nrow_start,
       preconditions = function(x) {
         x |>
           dplyr::summarize(nrow = dplyr::n())
